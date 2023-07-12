@@ -25,18 +25,18 @@ def make_prior(library, config_prior):
     config_prior = deepcopy(config_prior)
 
     prior_dict = {
-        "relational" : RelationalConstraint,
-        "length" : LengthConstraint,
-        "repeat" : RepeatConstraint,
-        "inverse" : InverseUnaryConstraint,
-        "trig" : TrigConstraint,
-        "const" : ConstConstraint,
-        "no_inputs" : NoInputsConstraint,
-        "soft_length" : SoftLengthPrior,
-        "uniform_arity" : UniformArityPrior,
-        "domain_range" : DomainRangeConstraint,
-        "language_model" : LanguageModelPrior,
-        "multi_discrete" : MultiDiscreteConstraint
+        "relational": RelationalConstraint,
+        "length": LengthConstraint,
+        "repeat": RepeatConstraint,
+        "inverse": InverseUnaryConstraint,
+        "trig": TrigConstraint,
+        "const": ConstConstraint,
+        "no_inputs": NoInputsConstraint,
+        "soft_length": SoftLengthPrior,
+        "uniform_arity": UniformArityPrior,
+        "domain_range": DomainRangeConstraint,
+        "language_model": LanguageModelPrior,
+        "multi_discrete": MultiDiscreteConstraint
     }
 
     count_constraints = config_prior.pop("count_constraints", False)
@@ -120,7 +120,7 @@ class JointPrior():
             "All Libraries must be identical."
 
         # Name the priors, e.g. RepeatConstraint-0
-        counts = defaultdict(lambda : -1)
+        counts = defaultdict(lambda: -1)
         self.names = []
         for prior in self.priors:
             name = prior.__class__.__name__
@@ -133,7 +133,7 @@ class JointPrior():
         self.total_constraints = 0
         self.total_tokens = 0
 
-        self.requires_parents_siblings = True # TBD: Determine
+        self.requires_parents_siblings = True  # TBD: Determine
 
         # SPECIAL CASE: Set DomainRangeConstraint.max_length if constraining max length
         length_prior = None
@@ -149,7 +149,7 @@ class JointPrior():
         self.describe()
 
     def initial_prior(self):
-        combined_prior = np.zeros((self.L,), dtype=np.float32)
+        combined_prior = np.zeros((self.L, ), dtype=np.float32)
         for prior in self.priors:
             combined_prior += prior.initial_prior()
         return combined_prior
@@ -168,8 +168,9 @@ class JointPrior():
         zero_prior = np.zeros((unfinished_actions.shape[0], self.L), dtype=np.float32)
         ind_priors = [zero_prior.copy() for _ in range(len(self.priors))]
         for i in range(len(self.priors)):
-            ind_priors[i] += self.priors[i](unfinished_actions, unfinished_parent, unfinished_sibling, unfinished_dangling)
-        combined_prior = sum(ind_priors) + zero_prior # TBD FIX HACK
+            ind_priors[i] += self.priors[i](unfinished_actions, unfinished_parent, unfinished_sibling,
+                                            unfinished_dangling)
+        combined_prior = sum(ind_priors) + zero_prior  # TBD FIX HACK
 
         # Count number of constrained tokens per prior
         if self.do_count:
@@ -181,7 +182,7 @@ class JointPrior():
         # Give status report if a prior contains all -inf
         collision_mask = np.all(np.isneginf(combined_prior), axis=1)
         if np.any(collision_mask):
-            collisions = collision_mask.nonzero()[0] # Indices of collisions
+            collisions = collision_mask.nonzero()[0]  # Indices of collisions
             msg = []
             msg.append("ERROR in {}:".format(__file__))
             msg.append("Encountered collision(s) in prior. This occurs when a prior contains all -inf values. " +
@@ -233,8 +234,8 @@ class JointPrior():
         """
 
         B, T = actions.shape
-        zero_prior = np.zeros((B, T, self.L), dtype=np.float32) # (batch, time, L)
-        ind_priors = [zero_prior.copy() for _ in range(len(self.priors))] # i x (batch, time, L)
+        zero_prior = np.zeros((B, T, self.L), dtype=np.float32)  # (batch, time, L)
+        ind_priors = [zero_prior.copy() for _ in range(len(self.priors))]  # i x (batch, time, L)
 
         if len(self.priors) == 0:
             return zero_prior
@@ -242,19 +243,16 @@ class JointPrior():
         # Set initial prior
         # Note: intial_prior() is already a combined prior, so we just set the
         # first individual prior, ind_priors[0].
-        initial_prior = self.initial_prior() # Shape (L,)
-        ind_priors[0][:, 0, :] = initial_prior # Broadcast to (batch, L)
+        initial_prior = self.initial_prior()  # Shape (L,)
+        ind_priors[0][:, 0, :] = initial_prior  # Broadcast to (batch, L)
 
         dangling = np.ones(B)
-        for t in range(1, T): # For each time step
+        for t in range(1, T):  # For each time step
             # Update dangling based on previously sampled token
             dangling += self.library.arities[actions[:, (t - 1)]] - 1
-            for i in range(len(self.priors)): # For each Prior
+            for i in range(len(self.priors)):  # For each Prior
                 # Compute the ith Prior at time step t
-                prior = self.priors[i](actions[:, :t],
-                                       parent[:, t],
-                                       sibling[:, t],
-                                       dangling) # Shape (batch, L)
+                prior = self.priors[i](actions[:, :t], parent[:, t], sibling[:, t], dangling)  # Shape (batch, L)
                 ind_priors[i][:, t, :] += prior
 
         # Combine all Priors
@@ -303,7 +301,7 @@ class Prior():
             (self.L,) as it will be broadcast to batch size later.
         """
 
-        return np.zeros((self.L,), dtype=np.float32)
+        return np.zeros((self.L, ), dtype=np.float32)
 
     def __call__(self, actions, parent, sibling, dangling):
         """
@@ -334,7 +332,7 @@ class Prior():
         """
 
         raise NotImplementedError
-        
+
     def describe(self):
         """Describe the Prior."""
 
@@ -342,9 +340,10 @@ class Prior():
 
 
 class Constraint(Prior):
+
     def __init__(self, library):
         Prior.__init__(self, library)
-        
+
     def make_constraint(self, mask, tokens):
         """
         Generate the prior for a batch of constraints and the corresponding
@@ -370,11 +369,11 @@ class Constraint(Prior):
             either 0.0 or -np.inf.
         """
         prior = np.zeros((mask.shape[0], self.L), dtype=np.float32)
-        
+
         for t in tokens:
             prior[mask, t] = self.mask_val
         return prior
-    
+
     def is_violated(self, actions, parent, sibling):
         """
         Given a set of actions, tells us if a prior constraint has been violated 
@@ -395,31 +394,33 @@ class Constraint(Prior):
         violated : Bool
         """
 
-        caller          = inspect.getframeinfo(inspect.stack()[1][0])
+        caller = inspect.getframeinfo(inspect.stack()[1][0])
 
-        warnings.warn("{} ({}) {} : Using a slower version of constraint for Deap. You should write your own.".format(caller.filename, caller.lineno, type(self).__name__))
+        warnings.warn("{} ({}) {} : Using a slower version of constraint for Deap. You should write your own.".format(
+            caller.filename, caller.lineno,
+            type(self).__name__))
 
         assert len(actions.shape) == 2, "Only takes in one action at a time since this is how Deap will use it."
         assert actions.shape[0] == 1, "Only takes in one action at a time since this is how Deap will use it."
-        dangling        = np.ones((1), dtype=np.int32)
-        
-        # For each step in time, get the prior                                
+        dangling = np.ones((1), dtype=np.int32)
+
+        # For each step in time, get the prior
         for t in range(actions.shape[1]):
-            dangling    += self.library.arities[actions[:,t]] - 1   
-            priors      = self.__call__(actions[:,:t], parent[:,t], sibling[:,t], dangling)
+            dangling += self.library.arities[actions[:, t]] - 1
+            priors = self.__call__(actions[:, :t], parent[:, t], sibling[:, t], dangling)
             # Does our action conflict with this prior?
-            if priors[0, actions[0,t]] == -np.inf:
+            if priors[0, actions[0, t]] == -np.inf:
                 return True
 
         return False
-    
+
     def test_is_violated(self, actions, parent, sibling):
         r"""
             This allows one to call the generic version of "is_violated" for testing purposes
             from the derived classes even if they have an optimized version. 
         """
         return Constraint.is_violated(self, actions, parent, sibling)
-    
+
 
 class RelationalConstraint(Constraint):
     """
@@ -452,17 +453,14 @@ class RelationalConstraint(Constraint):
         if self.relationship == "uchild":
             assert len(self.targets) == 1, "uchild RelationalConstraint" \
                 "cannot be applied correctly if len(self.targets) > 1"
-            unary_effectors = np.intersect1d(self.effectors,
-                                             self.library.unary_tokens)
+            unary_effectors = np.intersect1d(self.effectors, self.library.unary_tokens)
             self.adj_unary_effectors = library.parent_adjust[unary_effectors]
             self.adj_effectors = library.parent_adjust[self.effectors]
 
     def __call__(self, actions, parent, sibling, dangling):
 
         if self.relationship == "descendant":
-            mask = ancestors(actions=actions,
-                             arities=self.library.arities,
-                             ancestor_tokens=self.effectors)
+            mask = ancestors(actions=actions, arities=self.library.arities, ancestor_tokens=self.effectors)
             prior = self.make_constraint(mask, self.targets)
 
         elif self.relationship == "child":
@@ -484,22 +482,19 @@ class RelationalConstraint(Constraint):
             # Case 1: parent is a unary effector
             mask = np.isin(parent, self.adj_unary_effectors)
             # Case 2: sibling is a target and parent is an effector
-            mask += np.logical_and(np.isin(sibling, self.targets),
-                                   np.isin(parent, self.adj_effectors))
+            mask += np.logical_and(np.isin(sibling, self.targets), np.isin(parent, self.adj_effectors))
             prior = self.make_constraint(mask, self.targets)
 
         elif self.relationship == "lchild":
             parents = self.effectors
             adj_parents = self.library.parent_adjust[parents]
-            mask = np.logical_and(np.isin(parent, adj_parents),
-                                  np.equal(sibling, self.library.EMPTY_SIBLING))
+            mask = np.logical_and(np.isin(parent, adj_parents), np.equal(sibling, self.library.EMPTY_SIBLING))
             prior = self.make_constraint(mask, self.targets)
 
         elif self.relationship == "rchild":
             parents = self.effectors
             adj_parents = self.library.parent_adjust[parents]
-            mask = np.logical_and(np.isin(parent, adj_parents),
-                                  np.not_equal(sibling, self.library.EMPTY_SIBLING))
+            mask = np.logical_and(np.isin(parent, adj_parents), np.not_equal(sibling, self.library.EMPTY_SIBLING))
             prior = self.make_constraint(mask, self.targets)
 
         return prior
@@ -507,8 +502,10 @@ class RelationalConstraint(Constraint):
     def is_violated(self, actions, parent, sibling):
 
         if self.relationship == "descendant":
-            violated = jit_check_constraint_violation_descendant_with_target_tokens(
-                actions, self.targets, self.effectors, self.library.binary_tokens, self.library.unary_tokens)
+            violated = jit_check_constraint_violation_descendant_with_target_tokens(actions, self.targets,
+                                                                                    self.effectors,
+                                                                                    self.library.binary_tokens,
+                                                                                    self.library.unary_tokens)
 
         elif self.relationship == "child":
             parents = self.effectors
@@ -524,8 +521,8 @@ class RelationalConstraint(Constraint):
             unary_effectors = np.intersect1d(self.effectors, self.library.unary_tokens)
             adj_unary_effectors = self.library.parent_adjust[unary_effectors]
             adj_effectors = self.library.parent_adjust[self.effectors]
-            violated = jit_check_constraint_violation_uchild(actions, parent, sibling, self.targets, 
-                                                     adj_unary_effectors, adj_effectors)
+            violated = jit_check_constraint_violation_uchild(actions, parent, sibling, self.targets,
+                                                             adj_unary_effectors, adj_effectors)
 
         return violated
 
@@ -549,12 +546,12 @@ class RelationalConstraint(Constraint):
         targets = ", ".join([self.library.names[t] for t in self.targets])
         effectors = ", ".join([self.library.names[t] for t in self.effectors])
         relationship = {
-            "child" : "a child",
-            "sibling" : "a sibling",
-            "descendant" : "a descendant",
-            "uchild" : "the only unique child",
-            "lchild" : "the left child",
-            "rchild" : "the right child"
+            "child": "a child",
+            "sibling": "a sibling",
+            "descendant": "a descendant",
+            "uchild": "the only unique child",
+            "lchild": "the left child",
+            "rchild": "the right child"
         }[self.relationship]
         message = "{}: [{}] cannot be {} of [{}]." \
                   .format(self.__class__.__name__, targets, relationship, effectors)
@@ -572,9 +569,9 @@ class TrigConstraint(RelationalConstraint):
                                              targets=targets,
                                              effectors=effectors,
                                              relationship="descendant")
-        
+
     def is_violated(self, actions, parent, sibling):
-        
+
         # Call a slightly faster descendant computation since target is the same as effectors
         return jit_check_constraint_violation_descendant_no_target_tokens(\
                 actions, self.effectors, self.library.binary_tokens, self.library.unary_tokens)
@@ -586,8 +583,7 @@ class ConstConstraint(RelationalConstraint):
 
     def __init__(self, library):
         targets = library.const_token
-        effectors = np.concatenate([library.unary_tokens,
-                                    library.binary_tokens])
+        effectors = np.concatenate([library.unary_tokens, library.binary_tokens])
 
         super(ConstConstraint, self).__init__(library=library,
                                               targets=targets,
@@ -641,10 +637,7 @@ class InverseUnaryConstraint(Constraint):
         for target, effector in library.inverse_tokens.items():
             targets = [target]
             effectors = [effector]
-            prior = RelationalConstraint(library=library,
-                                         targets=targets,
-                                         effectors=effectors,
-                                         relationship="child")
+            prior = RelationalConstraint(library=library, targets=targets, effectors=effectors, relationship="child")
             self.priors.append(prior)
 
     def validate(self):
@@ -758,23 +751,22 @@ class LengthConstraint(Constraint):
 
         # Initialize the prior
         prior = self.init_zeros(actions)
-        i = actions.shape[1] - 1 # Current time
+        i = actions.shape[1] - 1  # Current time
         # Never need to constrain max length for first half of expression
         if self.max is not None and (i + 2) >= self.max // 2:
             remaining = self.max - (i + 1)
             # assert sum(dangling > remaining) == 0, (dangling, remaining)
             # TBD: For loop over arities
-            mask = dangling >= remaining - 1 # Constrain binary
+            mask = dangling >= remaining - 1  # Constrain binary
             prior += self.make_constraint(mask, self.library.binary_tokens)
-            mask = dangling == remaining # Constrain unary
+            mask = dangling == remaining  # Constrain unary
             prior += self.make_constraint(mask, self.library.unary_tokens)
 
         # Constrain terminals when dangling == 1 until selecting the
         # (min_length)th token
         if self.min is not None and (i + 2) < self.min:
-            mask = dangling == 1 # Constrain terminals
+            mask = dangling == 1  # Constrain terminals
             prior += self.make_constraint(mask, self.library.terminal_tokens)
-
 
         return prior
 
@@ -813,33 +805,30 @@ class DomainRangeConstraint(Constraint):
         Constraint.__init__(self, library)
 
         # Min/max of dataset domain
-        X_min = Program.task.X_train.min(axis=0) # (n_input_var,)
-        X_max = Program.task.X_train.max(axis=0) # (n_input_var,)
+        X_min = Program.task.X_train.min(axis=0)  # (n_input_var,)
+        X_max = Program.task.X_train.max(axis=0)  # (n_input_var,)
 
         # Min/max of dataset range
-        y_min = Program.task.y_train.min() # scalar
-        y_max = Program.task.y_train.max() # scalar
+        y_min = Program.task.y_train.min()  # scalar
+        y_max = Program.task.y_train.max()  # scalar
 
         # TBD: Add domain/range to Token
         # Define domains of possible tokens
-        domains = defaultdict(lambda : (-np.inf, np.inf))
-        domains.update({
-            "sqrt" : (0, np.inf),
-            "log" : (0, np.inf)
-        })
+        domains = defaultdict(lambda: (-np.inf, np.inf))
+        domains.update({"sqrt": (0, np.inf), "log": (0, np.inf)})
 
         # TBD: Add domain/range to Token
         # Define ranges of possible tokens
-        ranges = defaultdict(lambda : (-np.inf, np.inf))
+        ranges = defaultdict(lambda: (-np.inf, np.inf))
         ranges.update({
-            "sin" : (-1.0, 1.0),
-            "cos" : (-1.0, 1.0),
-            "exp" : (0, np.inf),
-            "abs" : (0, np.inf),
-            "sqrt" : (0, np.inf),
-            "n2" : (0, np.inf),
-            "n4" : (0, np.inf),
-            "n6" : (0, np.inf),
+            "sin": (-1.0, 1.0),
+            "cos": (-1.0, 1.0),
+            "exp": (0, np.inf),
+            "abs": (0, np.inf),
+            "sqrt": (0, np.inf),
+            "n2": (0, np.inf),
+            "n4": (0, np.inf),
+            "n6": (0, np.inf),
         })
 
         # Convert to np.ndarray of shape (L, 2)
@@ -847,13 +836,13 @@ class DomainRangeConstraint(Constraint):
         ranges = np.array([ranges[t.name] for t in self.library.tokens], dtype=np.float32)
 
         # Pre-compute the initial prior
-        self.p0 = Prior.initial_prior(self) # Zeros of shape (L,)
+        self.p0 = Prior.initial_prior(self)  # Zeros of shape (L,)
         for i, R in enumerate(ranges):
             if y_min < R[0] or y_max > R[1]:
                 self.p0[i] = -np.inf
 
         # Pre-compute constraining unary parents for each input variable
-        self.constraining_parents = [] # List of np.ndarray
+        self.constraining_parents = []  # List of np.ndarray
         for i in range(self.library.n_input_tokens):
             self.constraining_parents.append([])
             for t in self.library.unary_tokens:
@@ -870,7 +859,7 @@ class DomainRangeConstraint(Constraint):
         self.max_length = None
         self.last_chance_unary = Prior.initial_prior(self)
         for t in self.library.unary_tokens:
-            parent = self.library.parent_adjust[t] 
+            parent = self.library.parent_adjust[t]
             if all([parent in arr for arr in self.constraining_parents]):
                 self.last_chance_unary[t] = -np.inf
 
@@ -888,12 +877,12 @@ class DomainRangeConstraint(Constraint):
         # a collision with LengthConstraint.
         if self.max_length is not None:
             remaining = self.max_length - actions.shape[1]
-            mask = dangling == remaining - 1 # Last chance to constrain unary
+            mask = dangling == remaining - 1  # Last chance to constrain unary
             prior[mask] += self.last_chance_unary
 
         # For each input variable, see if the parent constrains that input
         for i, x in enumerate(self.library.input_tokens):
-            logit_adjust = Prior.initial_prior(self) # Zeros of shape (L,)
+            logit_adjust = Prior.initial_prior(self)  # Zeros of shape (L,)
             logit_adjust[x] = -np.inf
             mask = np.isin(parent, self.constraining_parents[i])
             prior[mask] += logit_adjust
@@ -926,7 +915,7 @@ class UniformArityPrior(Prior):
         # in the library with the same arity as that token. This is equivalent
         # to... For each arity, subtract log(n) from tokens of that arity, where
         # n is the total number of tokens of that arity
-        self.logit_adjust = np.zeros((self.L,), dtype=np.float32)
+        self.logit_adjust = np.zeros((self.L, ), dtype=np.float32)
         for arity, tokens in self.library.tokens_of_arity.items():
             self.logit_adjust[tokens] -= np.log(len(tokens))
 
@@ -957,7 +946,7 @@ class SoftLengthPrior(Prior):
         self.loc = loc
         self.scale = scale
 
-        self.terminal_mask = np.zeros((self.L,), dtype=np.bool)
+        self.terminal_mask = np.zeros((self.L, ), dtype=np.bool)
         self.terminal_mask[self.library.terminal_tokens] = True
 
         self.nonterminal_mask = ~self.terminal_mask
@@ -966,10 +955,10 @@ class SoftLengthPrior(Prior):
 
         # Initialize the prior
         prior = self.init_zeros(actions)
-        t = actions.shape[1] # Current time
+        t = actions.shape[1]  # Current time
 
         # Adjustment to terminal or non-terminal logits
-        logit_adjust = -(t - self.loc) ** 2 / (2 * self.scale)
+        logit_adjust = -(t - self.loc)**2 / (2 * self.scale)
 
         # Before loc, decrease p(terminal) where dangling == 1
         if t < self.loc:
@@ -988,7 +977,6 @@ class SoftLengthPrior(Prior):
         return None
 
 
-
 class LanguageModelPrior(Prior):
     """Class that applies a prior based on a pre-trained language model."""
 
@@ -1002,10 +990,9 @@ class LanguageModelPrior(Prior):
     def initial_prior(self):
 
         # TBD: Get initial prior from language model
-        return np.zeros((self.L,), dtype=np.float32)
+        return np.zeros((self.L, ), dtype=np.float32)
 
     def __call__(self, actions, parent, sibling, dangling):
-
         """
         NOTE: This assumes that the prior is always called sequentially during
         sampling. This may break if calling the prior arbitrarily.
@@ -1013,7 +1000,7 @@ class LanguageModelPrior(Prior):
         if actions.shape[1] == 1:
             self.lm.next_state = None
 
-        action = actions[:, -1] # Current action
+        action = actions[:, -1]  # Current action
         prior = self.lm.get_lm_prior(action)
         prior *= self.weight
 
@@ -1062,10 +1049,7 @@ class StateCheckerConstraint(Constraint):
             if len(targets) > 0:
                 # Add prior that constraints targets (containing 'xl < tk' with l < i, and
                 # 'xl < tk' with l == i and tk >= tj) from being the left child of 'xi < tj'
-                prior = RelationalConstraint(library,
-                                             targets=targets,
-                                             effectors=effectors,
-                                             relationship="lchild")
+                prior = RelationalConstraint(library, targets=targets, effectors=effectors, relationship="lchild")
                 self.priors.append(prior)
 
             # Add StateChecker 'xl < tk' to targets if l == i and tk < tj
@@ -1078,16 +1062,12 @@ class StateCheckerConstraint(Constraint):
             if len(targets) > 0:
                 # Add prior that constraints targets (containing 'xl < tk' with l <= i)
                 # from being the right child of 'xi < tj'
-                prior = RelationalConstraint(library,
-                                             targets=targets,
-                                             effectors=effectors,
-                                             relationship="rchild")
+                prior = RelationalConstraint(library, targets=targets, effectors=effectors, relationship="rchild")
                 self.priors.append(prior)
 
         # Add priors that constraint any StateChecker from being a child of any non-StateChecker
         if len(library.state_checker_tokens) > 0:
-            non_state_checker_tokens = np.setdiff1d(np.arange(self.L), library.state_checker_tokens,
-                                                    assume_unique=True)
+            non_state_checker_tokens = np.setdiff1d(np.arange(self.L), library.state_checker_tokens, assume_unique=True)
             for parent in non_state_checker_tokens:
                 if self.library[parent].arity > 0:
                     effectors = [parent]
@@ -1104,15 +1084,13 @@ class StateCheckerConstraint(Constraint):
                                              relationship="uchild")
                 self.priors.append(prior)
 
-
     def validate(self):
         if len(self.library.state_checker_tokens) == 0:
             return "There are no StateChecker tokens in the library."
         return None
 
     def __call__(self, actions, parent, sibling, dangling):
-        prior = sum([prior(actions, parent, sibling, dangling)
-                     for prior in self.priors])
+        prior = sum([prior(actions, parent, sibling, dangling) for prior in self.priors])
         return prior
 
     def describe(self):
@@ -1162,10 +1140,12 @@ class MutuallyExclusiveConstraint(Constraint):
         message = self.__class__.__name__
         message += ": Two or more distinct tokens in [{}] cannot appear in the same sequence.".format(tokens)
         return message
-                    
+
+
 class PolyConstraint(Constraint):
     """Class that impose constraints such that polynomial fitting problems can be
     constructed and well-defined when Polynomial Token is in library."""
+
     def __init__(self, library):
         Prior.__init__(self, library)
         # poly token cannot appear more than 1 time
@@ -1181,15 +1161,14 @@ class PolyConstraint(Constraint):
                                                     effectors=invalid_ancestors,
                                                     relationship="descendant")
             self.priors.append(descendant_prior)
-        
+
         # poly and const cannot appear in the same traversal
         if library.const_token is not None:
             mutually_exclusive_tokens = np.array([library.poly_token, library.const_token])
             self.priors.append(MutuallyExclusiveConstraint(library, mutually_exclusive_tokens))
 
     def __call__(self, actions, parent, sibling, dangling):
-        prior = sum([prior(actions, parent, sibling, dangling)
-                     for prior in self.priors])    
+        prior = sum([prior(actions, parent, sibling, dangling) for prior in self.priors])
         return prior
 
     def validate(self):
@@ -1215,6 +1194,7 @@ class MultiDiscreteConstraint(Constraint):
 
     Additional constraints may apply based on the value of dense and ordered.
     """
+
     def __init__(self, library, dense, ordered):
         """
         Parameters
@@ -1232,81 +1212,68 @@ class MultiDiscreteConstraint(Constraint):
         self.ordered = ordered
         self.priors = []
         self.special_prior = None
-        non_multi_discrete = np.setdiff1d(np.arange(self.L), library.multi_discrete_tokens,
-                                          assume_unique=True).tolist()
+        non_multi_discrete = np.setdiff1d(np.arange(self.L), library.multi_discrete_tokens, assume_unique=True).tolist()
 
         self.unary_multi_discrete = np.intersect1d(library.multi_discrete_tokens,
-                                                   library.unary_tokens, assume_unique=True)
+                                                   library.unary_tokens,
+                                                   assume_unique=True)
 
         if dense and ordered:
-            targets = [t for t in library.multi_discrete_tokens if
-                    self.library[t].action_dim is None or
-                    self.library[t].action_dim != 0]
-            prior = RelationalConstraint(library,
-                                         targets=targets,
-                                         effectors=non_multi_discrete,
-                                         relationship="child")
+            targets = [
+                t for t in library.multi_discrete_tokens
+                if self.library[t].action_dim is None or self.library[t].action_dim != 0
+            ]
+            prior = RelationalConstraint(library, targets=targets, effectors=non_multi_discrete, relationship="child")
             self.priors.append(prior)
 
             for parent in self.unary_multi_discrete:
-                if self.library[parent].action_dim < MultiDiscreteAction.n_dims-1:
-                    targets = [t for t in library.multi_discrete_tokens if
-                            self.library[t].action_dim is None or
-                            self.library[t].action_dim != self.library[parent].action_dim+1]
+                if self.library[parent].action_dim < MultiDiscreteAction.n_dims - 1:
+                    targets = [
+                        t for t in library.multi_discrete_tokens if self.library[t].action_dim is None
+                        or self.library[t].action_dim != self.library[parent].action_dim + 1
+                    ]
                 else:
                     targets = self.unary_multi_discrete
-                prior = RelationalConstraint(library,
-                                             targets=targets,
-                                             effectors=[parent],
-                                             relationship="child")
+                prior = RelationalConstraint(library, targets=targets, effectors=[parent], relationship="child")
                 self.priors.append(prior)
 
         elif not dense and ordered:
             for parent in self.unary_multi_discrete:
-                targets = [t for t in self.unary_multi_discrete if
-                        self.library[t].action_dim <= self.library[parent].action_dim]
-                prior = RelationalConstraint(library,
-                                             targets=targets,
-                                             effectors=[parent],
-                                             relationship="child")
+                targets = [
+                    t for t in self.unary_multi_discrete
+                    if self.library[t].action_dim <= self.library[parent].action_dim
+                ]
+                prior = RelationalConstraint(library, targets=targets, effectors=[parent], relationship="child")
                 self.priors.append(prior)
 
         elif dense and not ordered:
-            targets = [t for t in library.multi_discrete_tokens if
-                        self.library[t].action_dim is None]
-            prior = RelationalConstraint(library,
-                                         targets=targets,
-                                         effectors=non_multi_discrete,
-                                         relationship="child")
+            targets = [t for t in library.multi_discrete_tokens if self.library[t].action_dim is None]
+            prior = RelationalConstraint(library, targets=targets, effectors=non_multi_discrete, relationship="child")
             self.priors.append(prior)
             for ancestor in self.unary_multi_discrete:
-                targets = [t for t in library.multi_discrete_tokens if
-                        self.library[t].action_dim is None or
-                        self.library[t].action_dim == self.library[ancestor].action_dim]
-                prior = RelationalConstraint(library,
-                                             targets=targets,
-                                             effectors=[ancestor],
-                                             relationship="descendant")
+                targets = [
+                    t for t in library.multi_discrete_tokens if self.library[t].action_dim is None
+                    or self.library[t].action_dim == self.library[ancestor].action_dim
+                ]
+                prior = RelationalConstraint(library, targets=targets, effectors=[ancestor], relationship="descendant")
                 self.priors.append(prior)
 
             self.special_prior = RelationalConstraint(library,
                                                       targets=self.unary_multi_discrete,
                                                       effectors=self.unary_multi_discrete,
                                                       relationship="child")
-        else: # not dense and not ordered
+        else:  # not dense and not ordered
             for ancestor in self.unary_multi_discrete:
-                targets = [t for t in self.unary_multi_discrete if
-                        self.library[t].action_dim == self.library[ancestor].action_dim]
-                prior = RelationalConstraint(library,
-                                             targets=targets,
-                                             effectors=[ancestor],
-                                             relationship="descendant")
+                targets = [
+                    t for t in self.unary_multi_discrete
+                    if self.library[t].action_dim == self.library[ancestor].action_dim
+                ]
+                prior = RelationalConstraint(library, targets=targets, effectors=[ancestor], relationship="descendant")
                 self.priors.append(prior)
 
     def __call__(self, actions, parent, sibling, dangling):
         if self.special_prior is None:
-            prior = sum([prior(actions, parent, sibling, dangling)
-                        for prior in self.priors])
+            prior = sum([prior(actions, parent, sibling, dangling) for prior in self.priors])
         else:
             mask = np.full(len(actions), False)
             for i in range(len(actions)):
@@ -1316,10 +1283,9 @@ class MultiDiscreteConstraint(Constraint):
                         break
 
             prior = self.init_zeros(actions)
-            prior[~mask] = self.special_prior(actions[~mask], parent[~mask],
-                                              sibling[~mask], dangling[~mask])
-            prior[mask] = sum([prior(actions[mask], parent[mask],
-                                     sibling[mask], dangling[mask]) for prior in self.priors])
+            prior[~mask] = self.special_prior(actions[~mask], parent[~mask], sibling[~mask], dangling[~mask])
+            prior[mask] = sum(
+                [prior(actions[mask], parent[mask], sibling[mask], dangling[mask]) for prior in self.priors])
         return prior
 
     def validate(self):

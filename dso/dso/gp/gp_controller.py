@@ -12,27 +12,30 @@ from dso.gp import base as gp_base
 from dso.program import Program, from_tokens
 import dso.gp.utils as U
 
-
 # library of crossover ops available to use
-crossover_ops_dict = {
-    "cxOnePoint" : U.cxOnePoint,
-    "cxModifiedPMX" : U.cxModifiedPMX
-}
+crossover_ops_dict = {"cxOnePoint": U.cxOnePoint, "cxModifiedPMX": U.cxModifiedPMX}
 
 # library of mutation ops available to use
-mutation_ops_dict = {
-    "multi_mutate" : U.multi_mutate,
-    "multi_constrained_mutate" : U.multi_constrained_mutate
-}
+mutation_ops_dict = {"multi_mutate": U.multi_mutate, "multi_constrained_mutate": U.multi_constrained_mutate}
 
 
 class GPController:
 
-    def __init__(self, prior, config_prior, population_size=None, generations=20,
-                 crossover_operator='cxOnePoint', p_crossover=0.5,
-                 mutation_operator='multi_mutate', p_mutate=0.5, 
-                 tournament_size=5, mutate_tree_max=3, train_n=50,
-                 parallel_eval=False, ind_representation='', verbose=False,
+    def __init__(self,
+                 prior,
+                 config_prior,
+                 population_size=None,
+                 generations=20,
+                 crossover_operator='cxOnePoint',
+                 p_crossover=0.5,
+                 mutation_operator='multi_mutate',
+                 p_mutate=0.5,
+                 tournament_size=5,
+                 mutate_tree_max=3,
+                 train_n=50,
+                 parallel_eval=False,
+                 ind_representation='',
+                 verbose=False,
                  **kwargs):
         """
         Parameters
@@ -127,16 +130,13 @@ class GPController:
                                                           mutate_tree_max=mutate_tree_max)
 
         # Actual loop function that runs GP
-        self.algorithm = gp_base.RunOneStepAlgorithm(toolbox=self.toolbox,
-                                                     p_crossover=p_crossover,
-                                                     verbose=verbose)
+        self.algorithm = gp_base.RunOneStepAlgorithm(toolbox=self.toolbox, p_crossover=p_crossover, verbose=verbose)
 
     def check_constraint(self, individual):
         actions, parents, siblings = U.individual_to_dso_aps(individual, Program.library)
         return self.prior.is_violated(actions, parents, siblings)
 
-    def _create_toolbox(self, pset, tournament_size=3, mutate_tree_max=5,
-                        parallel_eval=True):
+    def _create_toolbox(self, pset, tournament_size=3, mutate_tree_max=5, parallel_eval=True):
         """
         Create a deap.base.Toolbox.
         """
@@ -147,11 +147,13 @@ class GPController:
         # ALSO: Creates a new class named *name* inheriting from *base*
 
         # Create custom fitness and individual classes
-        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-        creator.create("Individual", U.Individual,
-                       fitness=creator.FitnessMin,  # Adds fitness into PrimitiveTree
-                       num_mutations=0, 
-                       max_mutations=self.max_mutations) 
+        creator.create("FitnessMin", base.Fitness, weights=(-1.0, ))
+        creator.create(
+            "Individual",
+            U.Individual,
+            fitness=creator.FitnessMin,  # Adds fitness into PrimitiveTree
+            num_mutations=0,
+            max_mutations=self.max_mutations)
 
         # NOTE from deap.base.Toolbox:  def register(self, alias, function, *args, **kargs):
         # ALSO the function in toolbox is defined as: partial(function, *args, **kargs)
@@ -160,7 +162,7 @@ class GPController:
         toolbox = base.Toolbox()
         toolbox.register("select", tools.selTournament, tournsize=tournament_size)
         cx_op = crossover_ops_dict[self.crossover_operator]
-        toolbox.register("mate", cx_op) #, indpb=self.p_crossover)
+        toolbox.register("mate", cx_op)  #, indpb=self.p_crossover)
         toolbox.register("expr_mut", gp.genFull, min_=0, max_=mutate_tree_max)
         mut_op = mutation_ops_dict[self.mutation_operator]
         toolbox.register('mutate', mut_op, expr=toolbox.expr_mut, pset=pset, indpb=self.p_mutate)
@@ -185,7 +187,7 @@ class GPController:
         """Compute actions, parents, siblings, and priors of hall of fame."""
         hof = self.hof
         L = Program.library.L
-        
+
         # Recheck maximum lengths
         self.max_length = max(max([len(ind) for i, ind in enumerate(hof)]), self.max_length)
 
@@ -195,7 +197,7 @@ class GPController:
         obs_sibling = np.zeros((len(hof), self.max_length), dtype=np.int32)
         obs_dangling = np.ones((len(hof), self.max_length), dtype=np.int32)
 
-        obs_action[:, 0] = L # TBD: EMPTY_ACTION
+        obs_action[:, 0] = L  # TBD: EMPTY_ACTION
         programs = []
 
         # TBD: Utility function to go from actions -> (obs_actions, obs_parent, obs_sibling)
@@ -208,9 +210,10 @@ class GPController:
 
             actions[i, :] = tokens
             obs_action[i, 1:] = tokens[:-1]
-            obs_parent[i, :], obs_sibling[i, :] = jit_parents_siblings_at_once(np.expand_dims(tokens, axis=0),
-                                                                               arities=Program.library.arities,
-                                                                               parent_adjust=Program.library.parent_adjust)
+            obs_parent[i, :], obs_sibling[i, :] = jit_parents_siblings_at_once(
+                np.expand_dims(tokens, axis=0),
+                arities=Program.library.arities,
+                parent_adjust=Program.library.parent_adjust)
             # TBD: Return dangling as part of JIT function above
             arities = np.array([Program.library.arities[t] for t in tokens])
             obs_dangling[i, :] = 1 + np.cumsum(arities - 1)
@@ -258,10 +261,9 @@ class GPController:
         # TBD: Can base class of Individual be initialized with tokens and Program?
         individuals = list()
         for idx in samples_idx:
-            individuals.append(self.creator.Individual(actions[idx], self.pset,
-                                                       self.max_mutations,
-                                                       self.ind_representation,
-                                                       self.master_sequence))
+            individuals.append(
+                self.creator.Individual(actions[idx], self.pset, self.max_mutations, self.ind_representation,
+                                        self.master_sequence))
 
         self.algorithm.set_population(individuals)
 
@@ -269,9 +271,9 @@ class GPController:
         self.nevals = 0
         # TODO: check for convergence, maybe not all generations are needed
         for i in range(self.generations):
-            nevals = self.algorithm(self.hof, i) # Run one generation
+            nevals = self.algorithm(self.hof, i)  # Run one generation
             self.nevals += nevals
-            
+
         self.total_nevals += self.nevals
 
         # Get the HOF batch
@@ -279,13 +281,13 @@ class GPController:
             programs, actions, obs, priors = self.get_hof_programs()
 
         timer = time.perf_counter() - t1
-            
+
         self.verbose_print(timer, programs)
 
         return programs, actions, obs, priors
-    
+
     def verbose_print(self, timer, programs):
-        
+
         if self.verbose:
             print()
             print("--------------------------------------------------")
@@ -301,7 +303,6 @@ class GPController:
             print()
             print("--------------------------------------------------")
             print()
-
 
     def __del__(self):
         del self.creator.FitnessMin

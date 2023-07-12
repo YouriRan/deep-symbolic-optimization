@@ -11,12 +11,30 @@ from dso.task.regression.polyfit import regressors, PolyOptimizer, PolyGenerator
 np.random.seed(0)
 
 options = {
-        "linear_regression": {"fit_intercept": False},
-        "lasso": {"alpha": 1e-6, "fit_intercept": False, "max_iter": 200000, "tol": 1e-9},
-        "ridge": {"alpha": 1e-6, "fit_intercept": False},
-        "dso_least_squares" : {"cutoff_p_value": 0.05, "n_max_terms": 10, "coef_tol": 1e-12},
-        "dso_lasso" : {"gamma": 1E-6, "comp_tol": 1E-4, "rtrn_constrnd_ls": True}
+    "linear_regression": {
+        "fit_intercept": False
+    },
+    "lasso": {
+        "alpha": 1e-6,
+        "fit_intercept": False,
+        "max_iter": 200000,
+        "tol": 1e-9
+    },
+    "ridge": {
+        "alpha": 1e-6,
+        "fit_intercept": False
+    },
+    "dso_least_squares": {
+        "cutoff_p_value": 0.05,
+        "n_max_terms": 10,
+        "coef_tol": 1e-12
+    },
+    "dso_lasso": {
+        "gamma": 1E-6,
+        "comp_tol": 1E-4,
+        "rtrn_constrnd_ls": True
     }
+}
 
 coef_tol = 1e-6
 rel_tol = 1e-4
@@ -26,6 +44,7 @@ degree = 5
 n_pts = 500
 X_range = 10.0
 n_tests = 10
+
 
 def check_error(poly, X, y, regressor):
     diff = poly(X)
@@ -39,7 +58,7 @@ def test_polyfit():
     X = X.reshape((n_pts, n_input_var))
     poly_generator = PolyGenerator(degree, n_input_var)
 
-    for test in range(1, n_tests+1):
+    for test in range(1, n_tests + 1):
         target_poly = poly_generator.generate()
         y = target_poly(X)
 

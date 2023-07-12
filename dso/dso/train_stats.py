@@ -11,9 +11,11 @@ from io import StringIO, BytesIO
 import shutil
 from collections import defaultdict
 
+
 #These functions are defined globally so they are pickleable and can be used by Pool.map
 def hof_work(p):
     return [p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
+
 
 def pf_work(p):
     return [p.complexity, p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
@@ -23,10 +25,19 @@ class StatsLogger():
     """ Class responsible for dealing with output files of training statistics.
         It encapsulates all outputs to files."""
 
-    def __init__(self, sess, output_file, save_summary=False, save_all_iterations=False, hof=100,
-                 save_pareto_front=True, save_positional_entropy=False, save_top_samples_per_batch=0,
-                 save_cache=False, save_cache_r_min=0.9, save_freq=1, save_token_count=False):
-
+    def __init__(self,
+                 sess,
+                 output_file,
+                 save_summary=False,
+                 save_all_iterations=False,
+                 hof=100,
+                 save_pareto_front=True,
+                 save_positional_entropy=False,
+                 save_top_samples_per_batch=0,
+                 save_cache=False,
+                 save_cache_r_min=0.9,
+                 save_freq=1,
+                 save_token_count=False):
         """"
         sess : tf.Session
             TenorFlow Session object (used for generating summary files)
@@ -75,7 +86,7 @@ class StatsLogger():
         self.save_cache = save_cache
         self.save_cache_r_min = save_cache_r_min
         self.save_token_count = save_token_count
-        self.all_r = []   # save all R separately to keep backward compatibility with a generated file.
+        self.all_r = []  # save all R separately to keep backward compatibility with a generated file.
 
         if save_freq is None:
             self.buffer_frequency = 1
@@ -84,10 +95,10 @@ class StatsLogger():
         else:
             self.buffer_frequency = save_freq
 
-        self.buffer_iteration_stats = StringIO() # Buffer for iteration statistics
-        self.buffer_all_programs = StringIO() # Buffer for the statistics for all programs.
-        self.buffer_token_stats = StringIO() # Buffer for iteration statistics
-        self.buffer_top_samples = StringIO() # Buffer for top samples per batch
+        self.buffer_iteration_stats = StringIO()  # Buffer for iteration statistics
+        self.buffer_all_programs = StringIO()  # Buffer for the statistics for all programs.
+        self.buffer_token_stats = StringIO()  # Buffer for iteration statistics
+        self.buffer_top_samples = StringIO()  # Buffer for top samples per batch
         self.buffer_pos_entropy = BytesIO()  # Buffer for positional entropy
 
         self.setup_output_files()
@@ -118,24 +129,11 @@ class StatsLogger():
                 # invalid_avg_* : Fraction of invalid Programs per batch
                 # baseline: Baseline value used for training
                 # time: time used to learn in this iteration (in seconds)
-                headers = ["r_best",
-                           "r_max",
-                           "r_avg_full",
-                           "r_avg_sub",
-                           "l_avg_full",
-                           "l_avg_sub",
-                           "ewma",
-                           "n_unique_full",
-                           "n_unique_sub",
-                           "n_novel_full",
-                           "n_novel_sub",
-                           "a_ent_full",
-                           "a_ent_sub",
-                           "invalid_avg_full",
-                           "invalid_avg_sub",
-                           "baseline",
-                           "time",
-                           "nevals"]
+                headers = [
+                    "r_best", "r_max", "r_avg_full", "r_avg_sub", "l_avg_full", "l_avg_sub", "ewma", "n_unique_full",
+                    "n_unique_sub", "n_novel_full", "n_novel_sub", "a_ent_full", "a_ent_sub", "invalid_avg_full",
+                    "invalid_avg_sub", "baseline", "time", "nevals"
+                ]
                 f.write("{}\n".format(",".join(headers)))
             if self.save_all_iterations:
                 with open(self.all_info_output_file, 'w') as f:
@@ -143,10 +141,7 @@ class StatsLogger():
                     # r : reward for this program
                     # l : length of the program
                     # invalid : if the program is invalid
-                    headers = ["iteration",
-                                "r",
-                                "l",
-                                "invalid"]
+                    headers = ["iteration", "r", "l", "invalid"]
                     f.write("{}\n".format(",".join(headers)))
             if self.save_token_count:
                 with open(self.token_counter_output_file, 'w') as f:
@@ -174,11 +169,9 @@ class StatsLogger():
         else:
             self.summary_writer = None
 
-    def save_stats(self, r_full, l_full, actions_full, s_full, invalid_full, r,
-                   l, actions, s, s_history, invalid, r_best, r_max, ewma,
-                   summaries, iteration, baseline, iteration_walltime, nevals,
-                   programs, positional_entropy, top_samples_per_batch):
-
+    def save_stats(self, r_full, l_full, actions_full, s_full, invalid_full, r, l, actions, s, s_history, invalid,
+                   r_best, r_max, ewma, summaries, iteration, baseline, iteration_walltime, nevals, programs,
+                   positional_entropy, top_samples_per_batch):
         """
         Computes and saves all statistics that are computed for every time step. Depending on the value of
             self.buffer_frequency, the statistics might be instead saved in a buffer before going to disk.
@@ -205,7 +198,7 @@ class StatsLogger():
         :param positional_entropy: current positional_entropy
         :param top_samples_per_batch: list containing top solutions on the last batch
         """
-        iteration = iteration + 1 # Change from 0- to 1-based indexing
+        iteration = iteration + 1  # Change from 0- to 1-based indexing
         if self.output_file is not None:
             r_avg_full = np.mean(r_full)
 
@@ -222,33 +215,14 @@ class StatsLogger():
             n_novel_sub = len(set(s).difference(s_history))
             invalid_avg_sub = np.mean(invalid)
             stats = np.array([[
-                r_best,
-                r_max,
-                r_avg_full,
-                r_avg_sub,
-                l_avg_full,
-                l_avg_sub,
-                ewma,
-                n_unique_full,
-                n_unique_sub,
-                n_novel_full,
-                n_novel_sub,
-                a_ent_full,
-                a_ent_sub,
-                invalid_avg_full,
-                invalid_avg_sub,
-                baseline,
-                iteration_walltime,
-                nevals
-            ]], dtype=np.float32)
+                r_best, r_max, r_avg_full, r_avg_sub, l_avg_full, l_avg_sub, ewma, n_unique_full, n_unique_sub,
+                n_novel_full, n_novel_sub, a_ent_full, a_ent_sub, invalid_avg_full, invalid_avg_sub, baseline,
+                iteration_walltime, nevals
+            ]],
+                             dtype=np.float32)
             np.savetxt(self.buffer_iteration_stats, stats, delimiter=',')
         if self.save_all_iterations:
-            all_iteration_stats = np.array([
-                              [iteration] * len(r_full),
-                              r_full,
-                              l_full,
-                              invalid_full
-                              ]).transpose()
+            all_iteration_stats = np.array([[iteration] * len(r_full), r_full, l_full, invalid_full]).transpose()
             df = pd.DataFrame(all_iteration_stats)
             df.to_csv(self.buffer_all_programs, mode='a', header=False, index=False, line_terminator='\n')
 
@@ -270,12 +244,11 @@ class StatsLogger():
 
         if self.save_positional_entropy:
             #with open(self.buffer_pos_entropy, 'ab') as f:
-                # saves only the last positional entropy
+            # saves only the last positional entropy
             np.save(self.buffer_pos_entropy, positional_entropy)
 
         if self.save_top_samples_per_batch > 0:
-            df_topsamples = pd.DataFrame(top_samples_per_batch,
-                                         columns=['Iteration', 'Reward', 'Sequence'])
+            df_topsamples = pd.DataFrame(top_samples_per_batch, columns=['Iteration', 'Reward', 'Sequence'])
             # only save to the file the current iteration
             header = iteration == 1
             df_topsamples.to_csv(self.buffer_top_samples, mode='a', index=False, header=header)
@@ -299,9 +272,7 @@ class StatsLogger():
                 all_r_padded = []
                 for batch in self.all_r:
                     n_pad = max_batch_size - batch.shape[0]
-                    all_r_padded.append(np.pad(
-                        batch, pad_width=(0,n_pad), mode='constant',
-                        constant_values=-np.inf))
+                    all_r_padded.append(np.pad(batch, pad_width=(0, n_pad), mode='constant', constant_values=-np.inf))
             #Kept all_r numpy file for backwards compatibility.
             with open(self.all_r_output_file, 'ab') as f:
                 all_r = np.array(all_r_padded, dtype=np.float32)
@@ -349,7 +320,7 @@ class StatsLogger():
             costs = np.array([(p.complexity, -p.r) for p in all_programs])
             pareto_efficient_mask = is_pareto_efficient(costs)  # List of bool
             pf = list(compress(all_programs, pareto_efficient_mask))
-            pf.sort(key=lambda p: p.complexity) # Sort by complexity
+            pf.sort(key=lambda p: p.complexity)  # Sort by complexity
 
             if pool is not None:
                 results = pool.map(pf_work, pf)
@@ -385,12 +356,11 @@ class StatsLogger():
                 error_nodes[p.error_node] += count
 
         if n_invalid > 0:
-            print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, n_samples,
-                                                                    n_invalid / n_samples))
+            print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, n_samples, n_invalid / n_samples))
             print("Error type counts:")
             for error_type, count in error_types.items():
                 print("  {}: {} ({:.1%})".format(error_type, count, count / n_invalid))
-                result["error_"+str(error_type)] = count
+                result["error_" + str(error_type)] = count
             print("Error node counts:")
             for error_node, count in error_nodes.items():
                 print("  {}: {} ({:.1%})".format(error_node, count, count / n_invalid))
@@ -405,28 +375,23 @@ class StatsLogger():
         for program in programs:
             for token in program.traversal:
                 token_counter[token.name] += 1
-        stats = np.array([[
-            token_counter[token] for token in token_counter.keys()
-        ]], dtype=np.int)
+        stats = np.array([[token_counter[token] for token in token_counter.keys()]], dtype=np.int)
         np.savetxt(self.buffer_token_stats, stats, fmt='%i', delimiter=',')
 
     def flush_buffers(self):
         """Write all available buffers to file."""
         if self.output_file is not None:
-            self.buffer_iteration_stats = self.flush_buffer(
-                self.buffer_iteration_stats, self.output_file)
+            self.buffer_iteration_stats = self.flush_buffer(self.buffer_iteration_stats, self.output_file)
         if self.save_all_iterations:
-            self.buffer_all_programs = self.flush_buffer(
-                self.buffer_all_programs, self.all_info_output_file)
+            self.buffer_all_programs = self.flush_buffer(self.buffer_all_programs, self.all_info_output_file)
         if self.save_token_count:
-            self.buffer_token_stats = self.flush_buffer(
-                self.buffer_token_stats, self.token_counter_output_file)
+            self.buffer_token_stats = self.flush_buffer(self.buffer_token_stats, self.token_counter_output_file)
         if self.save_top_samples_per_batch > 0 and self.output_file is not None:
-            self.buffer_top_samples = self.flush_buffer(
-                self.buffer_top_samples, self.top_samples_per_batch_output_file)
+            self.buffer_top_samples = self.flush_buffer(self.buffer_top_samples, self.top_samples_per_batch_output_file)
         if self.save_positional_entropy:
-            self.buffer_pos_entropy = self.flush_buffer(
-                self.buffer_pos_entropy, self.positional_entropy_output_file, byte_buffer=True)
+            self.buffer_pos_entropy = self.flush_buffer(self.buffer_pos_entropy,
+                                                        self.positional_entropy_output_file,
+                                                        byte_buffer=True)
         if self.summary_writer:
             self.summary_writer.flush()
 

@@ -24,8 +24,7 @@ class Checkpoint():
         Maybe save a checkpoint depending on frequency configuration.
     """
 
-    def __init__(self, model, load_path=None, save_freq=23, units="hours",
-                 save_on_done=False):
+    def __init__(self, model, load_path=None, save_freq=23, units="hours", save_on_done=False):
         """
         model : dso.DeepSymbolicOptimizer
             The model to checkpoint.
@@ -114,8 +113,7 @@ class Checkpoint():
         if save_path is None:
             assert self.checkpoint_dir is not None, "Cannot support automated checkpointing with model.save_dir=None."
             timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-            save_path = os.path.join(self.checkpoint_dir,
-                                    "checkpoint_{}".format(timestamp))
+            save_path = os.path.join(self.checkpoint_dir, "checkpoint_{}".format(timestamp))
         if os.path.exists(save_path):
             paths = os.listdir(os.path.dirname(save_path))
             paths = [path for path in paths if path.startswith(os.path.basename(save_path))]
@@ -141,11 +139,11 @@ class Checkpoint():
         # Save the cache
         # print("Saving cache...")
         # TBD: Abstract into cache saving function
-        cache_save_path = os.path.join(save_path, "cache.csv")        
+        cache_save_path = os.path.join(save_path, "cache.csv")
         cache_programs = Program.cache.values()
         cache_tokens = [",".join(map(str, p.tokens.tolist())) for p in cache_programs]
         cache_rewards = [p.r for p in cache_programs]
-        cache_data = { "tokens" : cache_tokens, "rewards" : cache_rewards }
+        cache_data = {"tokens": cache_tokens, "rewards": cache_rewards}
         cache_df = pd.DataFrame(cache_data)
         cache_df.to_csv(cache_save_path, index=False)
 

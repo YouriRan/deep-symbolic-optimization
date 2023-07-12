@@ -54,7 +54,6 @@ def count_violations(actions, obs, model):
 @click.option("--n", type=int, default=1000, help="Number of samples to generate.")
 @click.option("--mode", type=click.Choice(["marginal", "single", "all", None]), default=None)
 def main(config1, config2, n, mode):
-
     """
     For each prior P, estimate search space reduction from all-but-P to all
     priors.
@@ -86,7 +85,6 @@ def main(config1, config2, n, mode):
 
         for k, v in counts.items():
             print("Full prior constrained {}/{} samples from all-but-{}.".format(v, n, k))
-
     """
     For each prior P, estimate search space reduction from no priors to P.
     """
@@ -110,14 +108,13 @@ def main(config1, config2, n, mode):
 
             # Create a model with a single prior
             config2 = deepcopy(config_all)
-            model2 = create_model(config2, prior_override={k : v})
+            model2 = create_model(config2, prior_override={k: v})
 
             # Count constraints
             counts[k] = count_violations(actions, obs, model2)
 
         for k, v in counts.items():
             print("Prior '{}' alone constrained {}/{} samples from no-prior config.".format(k, v, n))
-
     """
     Estimate search space reduction from no priors to config1.
     """
@@ -133,7 +130,6 @@ def main(config1, config2, n, mode):
         count = count_violations(actions, obs, model2)
 
         print("The config constrained {}/{} samples from no-prior config.".format(count, n))
-
     """
     Estimate search space reduction from config1 to config2.
     """

@@ -12,9 +12,7 @@ from dso.utils import cached_property
 import dso.utils as U
 
 
-
 def _finish_tokens(tokens):
-
     """
     Complete a possibly unfinished string of tokens.
 
@@ -106,7 +104,6 @@ def from_str_tokens(str_tokens, skip_cache=False):
 
 
 def from_tokens(tokens, skip_cache=False, on_policy=True, finish_tokens=True):
-
     """
     Memoized function to generate a Program from a list of tokens.
 
@@ -135,11 +132,10 @@ def from_tokens(tokens, skip_cache=False, on_policy=True, finish_tokens=True):
         The Program corresponding to the tokens, either pulled from memoization
         or generated from scratch.
     """
-
     '''
         Truncate expressions that complete early; extend ones that don't complete
     '''
-  
+
     if finish_tokens:
         tokens = _finish_tokens(tokens)
 
@@ -214,24 +210,24 @@ class Program(object):
     """
 
     # Static variables
-    task = None             # Task
-    library = None          # Library
+    task = None  # Task
+    library = None  # Library
     const_optimizer = None  # Function to optimize constants
     cache = {}
 
     # Cython-related static variables
-    have_cython = None      # Do we have cython installed
-    execute = None          # Link to execute. Either cython or python
+    have_cython = None  # Do we have cython installed
+    execute = None  # Link to execute. Either cython or python
 
     def __init__(self, tokens=None, on_policy=True):
         """
         Builds the Program from a list of of integers corresponding to Tokens.
         """
-        
-        # Can be empty if we are unpickling 
+
+        # Can be empty if we are unpickling
         if tokens is not None:
             self._init(tokens, on_policy)
-            
+
     def _init(self, tokens, on_policy=True):
 
         self.traversal = [Program.library[t] for t in tokens]
@@ -250,7 +246,7 @@ class Program(object):
 
         self.on_policy_count = 1 if on_policy else 0
         self.off_policy_count = 0 if on_policy else 1
-        self.originally_on_policy = on_policy # Note if a program was created on policy
+        self.originally_on_policy = on_policy  # Note if a program was created on policy
 
     def execute(self, X):
         """
@@ -289,7 +285,7 @@ class Program(object):
         def f(consts):
             self.set_constants(consts)
             r = self.task.reward_function(self, optimizing=True)
-            obj = -r # Constant optimizer minimizes the objective function
+            obj = -r  # Constant optimizer minimizes the objective function
 
             # Need to reset to False so that a single invalid call during
             # constant optimization doesn't render the whole Program invalid.
@@ -298,7 +294,7 @@ class Program(object):
             return obj
 
         # Do the optimization
-        x0 = np.ones(len(self.const_pos)) # Initial guess
+        x0 = np.ones(len(self.const_pos))  # Initial guess
         optimized_constants = Program.const_optimizer(f, x0)
 
         # Set the optimized constants
@@ -330,13 +326,11 @@ class Program(object):
         if self.poly_pos is not None:
             self.traversal[self.poly_pos] = poly_token
 
-
     @classmethod
     def clear_cache(cls):
         """Clears the class' cache"""
 
         cls.cache = {}
-
 
     @classmethod
     def set_task(cls, task):
@@ -344,7 +338,6 @@ class Program(object):
 
         Program.task = task
         Program.library = task.library
-
 
     @classmethod
     def set_const_optimizer(cls, name, **kwargs):
@@ -359,21 +352,21 @@ class Program(object):
 
         all_functions = {
             # No complexity
-            None : lambda p : 0.0,
+            None: lambda p: 0.0,
 
             # Length of sequence
-            "length" : lambda p : len(p.traversal),
+            "length": lambda p: len(p.traversal),
 
             # Sum of token-wise complexities
-            "token" : lambda p : sum([t.complexity for t in p.traversal]),
+            "token": lambda p: sum([t.complexity for t in p.traversal]),
 
             # Binding complexity: % of mutations relative to master seq
-            "mutations" : lambda p : Program.task.compute_mutational_distance(p)
+            "mutations": lambda p: Program.task.compute_mutational_distance(p)
         }
 
         assert name in all_functions, "Unrecognized complexity function name."
 
-        Program.complexity_function = lambda p : all_functions[name](p)
+        Program.complexity_function = lambda p: all_functions[name](p)
 
     @classmethod
     def set_execute(cls, protected):
@@ -394,18 +387,19 @@ class Program(object):
             Program.execute_function = execute_function
         else:
             Program.protected = False
+
             class InvalidLog():
                 """Log class to catch and record numpy warning messages"""
 
                 def __init__(self):
-                    self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
-                    self.error_node = None # E.g. 'exp', 'log', 'true_divide'
-                    self.new_entry = False # Flag for whether a warning has been encountered during a call to Program.execute()
+                    self.error_type = None  # One of ['divide', 'overflow', 'underflow', 'invalid']
+                    self.error_node = None  # E.g. 'exp', 'log', 'true_divide'
+                    self.new_entry = False  # Flag for whether a warning has been encountered during a call to Program.execute()
 
                 def write(self, message):
                     """This is called by numpy when encountering a warning"""
 
-                    if not self.new_entry: # Only record the first warning encounter
+                    if not self.new_entry:  # Only record the first warning encounter
                         message = message.strip().split(' ')
                         self.error_type = message[1]
                         self.error_node = message[-1]
@@ -421,9 +415,8 @@ class Program(object):
                     else:
                         return False, None, None
 
-
             invalid_log = InvalidLog()
-            np.seterrcall(invalid_log) # Tells numpy to call InvalidLog.write() when encountering a warning
+            np.seterrcall(invalid_log)  # Tells numpy to call InvalidLog.write() when encountering a warning
 
             # Define closure for execute function
             def unsafe_execute(traversal, X):
@@ -438,7 +431,7 @@ class Program(object):
                     return y, invalid, error_node, error_type
 
             Program.execute_function = unsafe_execute
-                
+
     @cached_property
     def r(self):
         """Evaluates and returns the reward of the program"""
@@ -485,7 +478,7 @@ class Program(object):
         tree = build_tree(tree)
         tree = convert_to_sympy(tree)
         try:
-            expr = U.parse_expr(tree.__repr__()) # SymPy expression
+            expr = U.parse_expr(tree.__repr__())  # SymPy expression
         except:
             expr = tree.__repr__()
         return expr
@@ -511,7 +504,7 @@ class Program(object):
         print("\tInvalid: {}".format(self.invalid))
         print("\tTraversal: {}".format(self))
         if self.task.task_type != 'binding':
-            print("\tExpression:") 
+            print("\tExpression:")
             print("{}\n".format(indent(self.pretty(), '\t  ')))
 
     def __repr__(self):
@@ -522,7 +515,6 @@ class Program(object):
 ###############################################################################
 # Everything below this line is currently only being used for pretty printing #
 ###############################################################################
-
 
 # Possible library elements that sympy capitalizes
 capital = ["add", "mul", "pow"]
@@ -538,7 +530,7 @@ class Node(object):
     def __repr__(self):
         children_repr = ",".join(repr(child) for child in self.children)
         if len(self.children) == 0:
-            return self.val # Avoids unnecessary parantheses, e.g. x1()
+            return self.val  # Avoids unnecessary parantheses, e.g. x1()
         return "{}({})".format(self.val, children_repr)
 
 

@@ -43,15 +43,23 @@ class BenchmarkDataset(object):
         Save generated dataset in logdir if logdir is provided.
     """
 
-    def __init__(self, name, benchmark_source="benchmarks.csv", root=None, noise=0.0,
-                 seed=0, logdir=None, backup=False):
+    def __init__(self,
+                 name,
+                 benchmark_source="benchmarks.csv",
+                 root=None,
+                 noise=0.0,
+                 seed=0,
+                 logdir=None,
+                 backup=False):
         # Set class variables
         self.name = name
         self.seed = seed
         self.noise = noise if noise is not None else 0.0
 
         # Set random number generator used for sampling X values
-        seed += zlib.adler32(name.encode("utf-8")) # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
+        seed += zlib.adler32(
+            name.encode("utf-8")
+        )  # Different seed for each name, otherwise two benchmarks with the same domain will always have the same X values
         self.rng = np.random.RandomState(seed)
 
         # Load benchmark data
@@ -100,7 +108,8 @@ class BenchmarkDataset(object):
         output_message += 'Benchmark path                 : {}\n'.format(benchmark_path)
         output_message += 'Function set                   : {} --> {}\n'.format(function_set_name, self.function_set)
         output_message += 'Function set path              : {}\n'.format(function_set_path)
-        test_spec_txt = row["test_spec"] if row["test_spec"] != "None" else "{} (Copy from train!)".format(row["test_spec"])
+        test_spec_txt = row["test_spec"] if row["test_spec"] != "None" else "{} (Copy from train!)".format(
+            row["test_spec"])
         output_message += 'Dataset specifications         : \n' \
                           + '        Train --> {}\n'.format(row["train_spec"]) \
                           + '        Test  --> {}\n'.format(test_spec_txt)
@@ -111,7 +120,8 @@ class BenchmarkDataset(object):
         if row["test_spec"] is not None:
             random_choice_test = self.rng.randint(self.X_test.shape[0])
             random_sample_test = "[{}],[{}]".format(self.X_test[random_choice_test], self.y_test[random_choice_test])
-            output_message += '        Test  --> X:{}, y:{}, Sample: {}\n'.format(self.X_test.shape, self.y_test.shape, random_sample_test)
+            output_message += '        Test  --> X:{}, y:{}, Sample: {}\n'.format(self.X_test.shape, self.y_test.shape,
+                                                                                  random_sample_test)
         if backup and logdir is not None:
             output_message += self.save(logdir)
         output_message += '-- BUILDING DATASET END -------------\n'
@@ -141,7 +151,7 @@ class BenchmarkDataset(object):
         X_tmp = None
         count_repeated_empty = 0
         count_iterations = 0
-        while(current_size < specs["dataset_size"]):
+        while (current_size < specs["dataset_size"]):
             if count_iterations > max_iterations:
                 assert False, "Dataset creation taking too long. Got {} from {}".format(X_tmp.shape, specs)
             missing_value_count = specs["dataset_size"] - current_size
@@ -166,7 +176,7 @@ class BenchmarkDataset(object):
                 assert False, "Equal distant data points cannot be created in the given range: {}".format(specs)
             X_tmp = X
             y_tmp = y
-            count_iterations +=1
+            count_iterations += 1
         assert X.shape[0] == specs["dataset_size"]
         return X, y
 
@@ -199,7 +209,7 @@ class BenchmarkDataset(object):
                 if step > stop - start:
                     n = step
                 else:
-                    n = int((stop - start)/step) + 1
+                    n = int((stop - start) / step) + 1
                 feature = np.linspace(start=start, stop=stop, num=n, endpoint=True)
             else:
                 raise ValueError("Did not recognize specification for {}: {}.".format(input_var, spec[input_var]))
@@ -226,27 +236,23 @@ class BenchmarkDataset(object):
             s = s.replace(k + '(', "function_map['{}'].function(".format(k))
         # Replace variable names
         for i in reversed(range(self.n_input_var)):
-            old = "x{}".format(i+1)
+            old = "x{}".format(i + 1)
             new = "x[:, {}]".format(i)
             s = s.replace(old, new)
         #Return numpy expression
-        return lambda x : eval(s)
+        return lambda x: eval(s)
 
     def save(self, logdir='./'):
         """Saves the dataset to a specified location."""
-        save_path = os.path.join(logdir,'data_{}_n{:.2f}_s{}.csv'.format(
-                self.name, self.noise, self.seed))
+        save_path = os.path.join(logdir, 'data_{}_n{:.2f}_s{}.csv'.format(self.name, self.noise, self.seed))
         try:
             os.makedirs(logdir, exist_ok=True)
-            np.savetxt(
-                save_path,
-                np.concatenate(
-                    (
-                        np.hstack((self.X_train, self.y_train[..., np.newaxis])),
-                        np.hstack((self.X_test, self.y_test[..., np.newaxis]))
-                    ), axis=0),
-                delimiter=',', fmt='%1.5f'
-            )
+            np.savetxt(save_path,
+                       np.concatenate((np.hstack((self.X_train, self.y_train[..., np.newaxis])),
+                                       np.hstack((self.X_test, self.y_test[..., np.newaxis]))),
+                                      axis=0),
+                       delimiter=',',
+                       fmt='%1.5f')
             return 'Saved dataset to               : {}\n'.format(save_path)
         except:
             import sys
@@ -257,8 +263,7 @@ class BenchmarkDataset(object):
         """Plot Dataset with underlying ground truth."""
         if self.X_train.shape[1] == 1:
             from matplotlib import pyplot as plt
-            save_path = os.path.join(logdir,'plot_{}_n{:.2f}_s{}.png'.format(
-                    self.name, self.noise, self.seed))
+            save_path = os.path.join(logdir, 'plot_{}_n{:.2f}_s{}.png'.format(self.name, self.noise, self.seed))
 
             # Draw ground truth expression
             bounds = list(list(self.train_spec.values())[0].values())[0][:2]
@@ -268,10 +273,7 @@ class BenchmarkDataset(object):
             # Draw the actual points
             plt.scatter(self.X_train, self.y_train)
             # Add a title
-            plt.title(
-                "{} N:{} S:{}".format(
-                    self.name, self.noise, self.seed),
-                fontsize=7)
+            plt.title("{} N:{} S:{}".format(self.name, self.noise, self.seed), fontsize=7)
             try:
                 os.makedirs(logdir, exist_ok=True)
                 plt.savefig(save_path)
@@ -306,27 +308,25 @@ def main(benchmark_source, plot, save_csv, sweep):
         datasets = []
 
         # Noiseless
-        d = BenchmarkDataset(
-            name=name,
-            benchmark_source=benchmark_source)
+        d = BenchmarkDataset(name=name, benchmark_source=benchmark_source)
         datasets.append(d)
 
         # Generate all combinations of noise levels and dataset size multipliers
         if sweep and name.startswith("Nguyen"):
             noises = [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10]
             for noise in noises:
-                d = BenchmarkDataset(
-                    name=name,
-                    benchmark_source=benchmark_source,
-                    noise=noise,
-                    backup=save_csv,
-                    logdir=save_dir)
+                d = BenchmarkDataset(name=name,
+                                     benchmark_source=benchmark_source,
+                                     noise=noise,
+                                     backup=save_csv,
+                                     logdir=save_dir)
                 datasets.append(d)
 
         # Plot and/or save datasets
         for dataset in datasets:
             if plot and dataset.X_train.shape[1] == 1:
                 dataset.plot(save_dir)
+
 
 if __name__ == "__main__":
     main()

@@ -1,9 +1,8 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
-from typing import Tuple, TypeVar
+import torch
+import torch.nn as nn
 
-import tensorflow as tf
-import dso
 from dso.prior import LengthConstraint
 from dso.program import Program
 from dso.utils import import_custom_source
@@ -11,12 +10,6 @@ from dso.prior import JointPrior
 from dso.tf_state_manager import StateManager
 from dso.memory import Batch
 
-# Used for function annotations using the type system
-actions = tf.TensorArray
-obs     = tf.TensorArray
-priors  = tf.TensorArray
-neglogp = tf.TensorArray
-entropy = tf.TensorArray
 
 def make_policy(sess, prior, state_manager, policy_type, **config_policy):
     """Factory function for Policy object."""
@@ -29,26 +22,19 @@ def make_policy(sess, prior, state_manager, policy_type, **config_policy):
         policy_class = import_custom_source(policy_type)
         assert issubclass(policy_class, Policy), \
                 "Custom policy {} must subclass dso.policy.Policy.".format(policy_class)
-        
-    policy = policy_class(sess,
-                          prior,
-                          state_manager,
-                          **config_policy)
+
+    policy = policy_class(sess, prior, state_manager, **config_policy)
 
     return policy
 
-class Policy(ABC):
+
+class Policy(nn.Module):
     """Abstract class for a policy. A policy is a parametrized probability 
     distribution over discrete objects. DSO algorithms optimize the parameters 
     of this distribution to generate discrete objects with high rewards.
-    """    
+    """
 
-    def __init__(self, 
-            sess : tf.Session,
-            prior : JointPrior,
-            state_manager : StateManager,
-            debug : int = 0,  
-            max_length : int = 30) -> None:
+    def __init__(self, prior: JointPrior, state_manager: StateManager, debug: int = 0, max_length: int = 30) -> None:
         '''Parameters
         ----------
         sess : tf.Session
@@ -67,21 +53,20 @@ class Policy(ABC):
         max_length : int or None
             Maximum sequence length. This will be overridden if a LengthConstraint
             with a maximum length is part of the prior.
-        '''    
-        self.sess = sess
+        '''
         self.prior = prior
         self.state_manager = state_manager
         self.debug = debug
 
-        # Set self.max_length depending on the Prior 
+        # Set self.max_length depending on the Prior
         self._set_max_length(max_length)
 
         # Samples produced during attempt to get novel samples.
         # Will be combined with checkpoint-loaded samples for next training step
         self.extended_batch = None
         self.valid_extended_batch = False
-        
-    def _set_max_length(self, max_length : int) -> None:
+
+    def _set_max_length(self, max_length: int) -> None:
         """Set the max legnth depending on the Prior
         """
         # Find max_length from the LengthConstraint prior, if it exists
@@ -107,7 +92,7 @@ class Policy(ABC):
                   "LengthConstraint ({}).".format(max_length, self.max_length))
 
     @abstractmethod
-    def _setup_tf_model(self, **kwargs) -> None:
+    def _setup_model(self, **kwargs) -> None:
         """"Setup the TensorFlow graph(s).
 
         Returns
@@ -117,10 +102,7 @@ class Policy(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def make_neglogp_and_entropy(self, 
-            B : Batch,
-            entropy_gamma : float
-            ) -> Tuple[neglogp, entropy]:
+    def make_neglogp_and_entropy(self, B: Batch, entropy_gamma: float) -> torch.Tensor:
         """Computes the negative log-probabilities for a given
         batch of actions, observations and priors
         under the current policy.
@@ -133,7 +115,7 @@ class Policy(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def sample(self, n : int) -> Tuple[actions, obs, priors]:
+    def sample(self, n: int) -> torch.Tensor:
         """Sample batch of n expressions.
 
         Returns
@@ -153,5 +135,3 @@ class Policy(ABC):
             Or a batch
         """
         raise NotImplementedError
-
-

@@ -24,7 +24,7 @@ def train_dso(config):
     # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
     if config["task"]["task_type"] == "control" and config["training"]["n_cores_batch"] > 1:
         import gym
-        import dso.task.control # Registers custom and third-party environments
+        import dso.task.control  # Registers custom and third-party environments
         gym.make(config["task"]["env"])
 
     # Train the model
@@ -63,7 +63,11 @@ def print_summary(config, runs, messages):
 @click.argument('config_template', default="")
 @click.option('--runs', '--r', default=1, type=int, help="Number of independent runs with different seeds")
 @click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
-@click.option('--seed', '--s', default=None, type=int, help="Starting seed (overwrites seed in config), incremented for each independent run")
+@click.option('--seed',
+              '--s',
+              default=None,
+              type=int,
+              help="Starting seed (overwrites seed in config), incremented for each independent run")
 @click.option('--benchmark', '--b', default=None, type=str, help="Name of benchmark")
 @click.option('--exp_name', default=None, type=str, help="Name of experiment to manually generate log path")
 def main(config_template, runs, n_cores_task, seed, benchmark, exp_name):
@@ -94,9 +98,8 @@ def main(config_template, runs, n_cores_task, seed, benchmark, exp_name):
     # Overwrite config seed, if specified
     if seed is not None:
         if config["experiment"]["seed"] is not None:
-            messages.append(
-                "INFO: Replacing config seed {} with command-line seed {}.".format(
-                    config["experiment"]["seed"], seed))
+            messages.append("INFO: Replacing config seed {} with command-line seed {}.".format(
+                config["experiment"]["seed"], seed))
         config["experiment"]["seed"] = seed
 
     # Save starting seed and run command
@@ -111,23 +114,17 @@ def main(config_template, runs, n_cores_task, seed, benchmark, exp_name):
     if n_cores_task == -1:
         n_cores_task = multiprocessing.cpu_count()
     if n_cores_task > runs:
-        messages.append(
-                "INFO: Setting 'n_cores_task' to {} because there are only {} runs.".format(
-                    runs, runs))
+        messages.append("INFO: Setting 'n_cores_task' to {} because there are only {} runs.".format(runs, runs))
         n_cores_task = runs
     if config["training"]["verbose"] and n_cores_task > 1:
-        messages.append(
-                "INFO: Setting 'verbose' to False for parallelized run.")
+        messages.append("INFO: Setting 'verbose' to False for parallelized run.")
         config["training"]["verbose"] = False
     if config["training"]["n_cores_batch"] != 1 and n_cores_task > 1:
-        messages.append(
-                "INFO: Setting 'n_cores_batch' to 1 to avoid nested child processes.")
+        messages.append("INFO: Setting 'n_cores_batch' to 1 to avoid nested child processes.")
         config["training"]["n_cores_batch"] = 1
     if config["gp_meld"]["run_gp_meld"] and n_cores_task > 1 and runs > 1:
-        messages.append(
-                "INFO: Setting 'parallel_eval' to 'False' as we are already parallelizing.")
+        messages.append("INFO: Setting 'parallel_eval' to 'False' as we are already parallelizing.")
         config["gp_meld"]["parallel_eval"] = False
-
 
     # Start training
     print_summary(config, runs, messages)
@@ -154,11 +151,10 @@ def main(config_template, runs, n_cores_task, seed, benchmark, exp_name):
     # Evaluate the log files
     print("\n== POST-PROCESS START =================")
     log = LogEval(config_path=os.path.dirname(summary_path))
-    log.analyze_log(
-        show_count=config["postprocess"]["show_count"],
-        show_hof=config["logging"]["hof"] is not None and config["logging"]["hof"] > 0,
-        show_pf=config["logging"]["save_pareto_front"],
-        save_plots=config["postprocess"]["save_plots"])
+    log.analyze_log(show_count=config["postprocess"]["show_count"],
+                    show_hof=config["logging"]["hof"] is not None and config["logging"]["hof"] > 0,
+                    show_pf=config["logging"]["save_pareto_front"],
+                    save_plots=config["postprocess"]["save_plots"])
     print("== POST-PROCESS END ===================")
 
 

@@ -16,11 +16,18 @@ class RegressionTask(HierarchicalTask):
 
     task_type = "regression"
 
-    def __init__(self, function_set, dataset, metric="inv_nrmse",
-                 metric_params=(1.0,), extra_metric_test=None,
-                 extra_metric_test_params=(), reward_noise=0.0,
-                 reward_noise_type="r", threshold=1e-12,
-                 normalize_variance=False, protected=False,
+    def __init__(self,
+                 function_set,
+                 dataset,
+                 metric="inv_nrmse",
+                 metric_params=(1.0, ),
+                 extra_metric_test=None,
+                 extra_metric_test_params=(),
+                 reward_noise=0.0,
+                 reward_noise_type="r",
+                 threshold=1e-12,
+                 normalize_variance=False,
+                 protected=False,
                  decision_tree_threshold_set=None,
                  poly_optimizer_params=None):
         """
@@ -73,7 +80,6 @@ class RegressionTask(HierarchicalTask):
         """
 
         super(HierarchicalTask).__init__()
-
         """
         Configure (X, y) train/test data. There are four supported use cases:
         (1) named benchmark, (2) benchmark config, (3) filename, and (4) direct
@@ -83,7 +89,7 @@ class RegressionTask(HierarchicalTask):
 
         # Case 1: Named benchmark dataset (shortcut for Case 2)
         if isinstance(dataset, str) and not dataset.endswith(".csv"):
-            dataset = {"name" : dataset}
+            dataset = {"name": dataset}
 
         # Case 2: Benchmark dataset config
         if isinstance(dataset, dict):
@@ -101,13 +107,13 @@ class RegressionTask(HierarchicalTask):
                 print("WARNING: function_set provided when running benchmark "
                       "problem. The provided function_set will be ignored; the "
                       "benchmark function_set will be used instead.\nProvided "
-                      "function_set:\n  {}\nBenchmark function_set:\n  {}."
-                      .format(function_set, benchmark.function_set))
+                      "function_set:\n  {}\nBenchmark function_set:\n  {}.".format(function_set,
+                                                                                   benchmark.function_set))
             function_set = benchmark.function_set
 
         # Case 3: Dataset filename
         elif isinstance(dataset, str) and dataset.endswith("csv"):
-            df = pd.read_csv(dataset, header=None) # Assuming data file does not have header rows
+            df = pd.read_csv(dataset, header=None)  # Assuming data file does not have header rows
             self.X_train = df.values[:, :-1]
             self.y_train = df.values[:, -1]
             self.name = dataset.replace("/", "_")[:-4]
@@ -127,7 +133,6 @@ class RegressionTask(HierarchicalTask):
         # Save time by only computing data variances once
         self.var_y_test = np.var(self.y_test)
         self.var_y_test_noiseless = np.var(self.y_test_noiseless)
-
         """
         Configure train/test reward metrics.
         """
@@ -138,7 +143,6 @@ class RegressionTask(HierarchicalTask):
             self.metric_test, _, _ = make_regression_metric(extra_metric_test, self.y_test, *extra_metric_test_params)
         else:
             self.metric_test = None
-
         """
         Configure reward noise.
         """
@@ -149,7 +153,7 @@ class RegressionTask(HierarchicalTask):
         if reward_noise > 0:
             assert reward_noise_type in ["y_hat", "r"], "Reward noise type not recognized."
             self.rng = np.random.RandomState(0)
-            y_rms_train = np.sqrt(np.mean(self.y_train ** 2))
+            y_rms_train = np.sqrt(np.mean(self.y_train**2))
             if reward_noise_type == "y_hat":
                 self.scale = reward_noise * y_rms_train
             elif reward_noise_type == "r":
@@ -175,11 +179,11 @@ class RegressionTask(HierarchicalTask):
         if "poly" in self.library.names:
             if poly_optimizer_params is None:
                 poly_optimizer_params = {
-                        "degree": 3,
-                        "coef_tol": 1e-6,
-                        "regressor": "dso_least_squares",
-                        "regressor_params": {}
-                    }
+                    "degree": 3,
+                    "coef_tol": 1e-6,
+                    "regressor": "dso_least_squares",
+                    "regressor_params": {}
+                }
 
             self.poly_optimizer = PolyOptimizer(**poly_optimizer_params)
 
@@ -189,7 +193,7 @@ class RegressionTask(HierarchicalTask):
             assert len(p.const_pos) == 0, "A program cannot contain 'poly' and 'const' tokens at the same time"
             poly_data_y = make_poly_data(p.traversal, self.X_train, self.y_train)
             if poly_data_y is None:  # invalid function evaluations (nan or inf) appeared in make_poly_data
-                p.traversal[p.poly_pos] = Polynomial([(0,)*self.X_train.shape[1]], np.ones(1))
+                p.traversal[p.poly_pos] = Polynomial([(0, ) * self.X_train.shape[1]], np.ones(1))
             else:
                 p.traversal[p.poly_pos] = self.poly_optimizer.fit(self.X_train, poly_data_y)
 
@@ -225,7 +229,7 @@ class RegressionTask(HierarchicalTask):
                 return np.inf
             r += self.rng.normal(loc=0, scale=self.scale)
             if self.normalize_variance:
-                r /= np.sqrt(1 + 12 * self.scale ** 2)
+                r /= np.sqrt(1 + 12 * self.scale**2)
 
         return r
 
@@ -240,19 +244,15 @@ class RegressionTask(HierarchicalTask):
 
         else:
             # NMSE on test data (used to report final error)
-            nmse_test = np.mean((self.y_test - y_hat) ** 2) / self.var_y_test
+            nmse_test = np.mean((self.y_test - y_hat)**2) / self.var_y_test
 
             # NMSE on noiseless test data (used to determine recovery)
-            nmse_test_noiseless = np.mean((self.y_test_noiseless - y_hat) ** 2) / self.var_y_test_noiseless
+            nmse_test_noiseless = np.mean((self.y_test_noiseless - y_hat)**2) / self.var_y_test_noiseless
 
             # Success is defined by NMSE on noiseless test data below a threshold
             success = nmse_test_noiseless < self.threshold
 
-        info = {
-            "nmse_test" : nmse_test,
-            "nmse_test_noiseless" : nmse_test_noiseless,
-            "success" : success
-        }
+        info = {"nmse_test": nmse_test, "nmse_test_noiseless": nmse_test_noiseless, "success": success}
 
         if self.metric_test is not None:
             if p.invalid:
@@ -262,10 +262,7 @@ class RegressionTask(HierarchicalTask):
                 m_test = self.metric_test(self.y_test, y_hat)
                 m_test_noiseless = self.metric_test(self.y_test_noiseless, y_hat)
 
-            info.update({
-                self.extra_metric_test : m_test,
-                self.extra_metric_test + '_noiseless' : m_test_noiseless
-            })
+            info.update({self.extra_metric_test: m_test, self.extra_metric_test + '_noiseless': m_test_noiseless})
 
         return info
 
@@ -305,101 +302,91 @@ def make_regression_metric(name, y_train, *args):
         # Negative mean squared error
         # Range: [-inf, 0]
         # Value = -var(y) when y_hat == mean(y)
-        "neg_mse" :     (lambda y, y_hat : -np.mean((y - y_hat)**2),
-                        0),
+        "neg_mse": (lambda y, y_hat: -np.mean((y - y_hat)**2), 0),
 
         # Negative root mean squared error
         # Range: [-inf, 0]
         # Value = -sqrt(var(y)) when y_hat == mean(y)
-        "neg_rmse" :     (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)),
-                        0),
+        "neg_rmse": (lambda y, y_hat: -np.sqrt(np.mean((y - y_hat)**2)), 0),
 
         # Negative normalized mean squared error
         # Range: [-inf, 0]
         # Value = -1 when y_hat == mean(y)
-        "neg_nmse" :    (lambda y, y_hat : -np.mean((y - y_hat)**2)/var_y,
-                        0),
+        "neg_nmse": (lambda y, y_hat: -np.mean((y - y_hat)**2) / var_y, 0),
 
         # Negative normalized root mean squared error
         # Range: [-inf, 0]
         # Value = -1 when y_hat == mean(y)
-        "neg_nrmse" :   (lambda y, y_hat : -np.sqrt(np.mean((y - y_hat)**2)/var_y),
-                        0),
+        "neg_nrmse": (lambda y, y_hat: -np.sqrt(np.mean((y - y_hat)**2) / var_y), 0),
 
         # (Protected) negative log mean squared error
         # Range: [-inf, 0]
         # Value = -log(1 + var(y)) when y_hat == mean(y)
-        "neglog_mse" : (lambda y, y_hat : -np.log(1 + np.mean((y - y_hat)**2)),
-                        0),
+        "neglog_mse": (lambda y, y_hat: -np.log(1 + np.mean((y - y_hat)**2)), 0),
 
         # (Protected) inverse mean squared error
         # Range: [0, 1]
         # Value = 1/(1 + args[0]*var(y)) when y_hat == mean(y)
-        "inv_mse" : (lambda y, y_hat : 1/(1 + args[0]*np.mean((y - y_hat)**2)),
-                        1),
+        "inv_mse": (lambda y, y_hat: 1 / (1 + args[0] * np.mean((y - y_hat)**2)), 1),
 
         # (Protected) inverse normalized mean squared error
         # Range: [0, 1]
         # Value = 1/(1 + args[0]) when y_hat == mean(y)
-        "inv_nmse" :    (lambda y, y_hat : 1/(1 + args[0]*np.mean((y - y_hat)**2)/var_y),
-                        1),
+        "inv_nmse": (lambda y, y_hat: 1 / (1 + args[0] * np.mean((y - y_hat)**2) / var_y), 1),
 
         # (Protected) inverse normalized root mean squared error
         # Range: [0, 1]
         # Value = 1/(1 + args[0]) when y_hat == mean(y)
-        "inv_nrmse" :    (lambda y, y_hat : 1/(1 + args[0]*np.sqrt(np.mean((y - y_hat)**2)/var_y)),
-                        1),
+        "inv_nrmse": (lambda y, y_hat: 1 / (1 + args[0] * np.sqrt(np.mean((y - y_hat)**2) / var_y)), 1),
 
         # Fraction of predicted points within p0*abs(y) + p1 band of the true value
         # Range: [0, 1]
-        "fraction" :    (lambda y, y_hat : np.mean(abs(y - y_hat) < args[0]*abs(y) + args[1]),
-                        2),
+        "fraction": (lambda y, y_hat: np.mean(abs(y - y_hat) < args[0] * abs(y) + args[1]), 2),
 
         # Pearson correlation coefficient
         # Range: [0, 1]
-        "pearson" :     (lambda y, y_hat : scipy.stats.pearsonr(y, y_hat)[0],
-                        0),
+        "pearson": (lambda y, y_hat: scipy.stats.pearsonr(y, y_hat)[0], 0),
 
         # Spearman correlation coefficient
         # Range: [0, 1]
-        "spearman" :    (lambda y, y_hat : scipy.stats.spearmanr(y, y_hat)[0],
-                        0)
+        "spearman": (lambda y, y_hat: scipy.stats.spearmanr(y, y_hat)[0], 0)
     }
 
     assert name in all_metrics, "Unrecognized reward function name."
-    assert len(args) == all_metrics[name][1], "For {}, expected {} reward function parameters; received {}.".format(name,all_metrics[name][1], len(args))
+    assert len(args) == all_metrics[name][1], "For {}, expected {} reward function parameters; received {}.".format(
+        name, all_metrics[name][1], len(args))
     metric = all_metrics[name][0]
 
     # For negative MSE-based rewards, invalid reward is the value of the reward function when y_hat = mean(y)
     # For inverse MSE-based rewards, invalid reward is 0.0
     # For non-MSE-based rewards, invalid reward is the minimum value of the reward function's range
     all_invalid_rewards = {
-        "neg_mse" : -var_y,
-        "neg_rmse" : -np.sqrt(var_y),
-        "neg_nmse" : -1.0,
-        "neg_nrmse" : -1.0,
-        "neglog_mse" : -np.log(1 + var_y),
-        "inv_mse" : 0.0, #1/(1 + args[0]*var_y),
-        "inv_nmse" : 0.0, #1/(1 + args[0]),
-        "inv_nrmse" : 0.0, #1/(1 + args[0]),
-        "fraction" : 0.0,
-        "pearson" : 0.0,
-        "spearman" : 0.0
+        "neg_mse": -var_y,
+        "neg_rmse": -np.sqrt(var_y),
+        "neg_nmse": -1.0,
+        "neg_nrmse": -1.0,
+        "neglog_mse": -np.log(1 + var_y),
+        "inv_mse": 0.0,  #1/(1 + args[0]*var_y),
+        "inv_nmse": 0.0,  #1/(1 + args[0]),
+        "inv_nrmse": 0.0,  #1/(1 + args[0]),
+        "fraction": 0.0,
+        "pearson": 0.0,
+        "spearman": 0.0
     }
     invalid_reward = all_invalid_rewards[name]
 
     all_max_rewards = {
-        "neg_mse" : 0.0,
-        "neg_rmse" : 0.0,
-        "neg_nmse" : 0.0,
-        "neg_nrmse" : 0.0,
-        "neglog_mse" : 0.0,
-        "inv_mse" : 1.0,
-        "inv_nmse" : 1.0,
-        "inv_nrmse" : 1.0,
-        "fraction" : 1.0,
-        "pearson" : 1.0,
-        "spearman" : 1.0
+        "neg_mse": 0.0,
+        "neg_rmse": 0.0,
+        "neg_nmse": 0.0,
+        "neg_nrmse": 0.0,
+        "neglog_mse": 0.0,
+        "inv_mse": 1.0,
+        "inv_nmse": 1.0,
+        "inv_nrmse": 1.0,
+        "fraction": 1.0,
+        "pearson": 1.0,
+        "spearman": 1.0
     }
     max_reward = all_max_rewards[name]
 

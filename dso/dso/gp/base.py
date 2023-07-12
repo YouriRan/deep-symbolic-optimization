@@ -8,13 +8,15 @@ import dso.gp.utils as U
 
 from dso.program import from_tokens, _finish_tokens, Program
 
+
 def _eval_step(tokens):
     """
     Take in an action which is a numpy array/string and return the reward
     """
     p = from_tokens(tokens, on_policy=False, finish_tokens=False, skip_cache=True)
-    r = p.r # This calls the reward computation 
+    r = p.r  # This calls the reward computation
     return p
+
 
 class RunOneStepAlgorithm:
     """
@@ -30,18 +32,17 @@ class RunOneStepAlgorithm:
         self.cxpb = p_crossover  # TODO: use toolbox.mate.keywords['indpb']
 
         self.logbook = tools.Logbook()
-        self.logbook.header = ['gen', 'iter', 'pop_size', 'nevals',
-                               'uncached_size', 'best_val', 'timer']
+        self.logbook.header = ['gen', 'iter', 'pop_size', 'nevals', 'uncached_size', 'best_val', 'timer']
 
-        self.population = None # Must be explicitly set
+        self.population = None  # Must be explicitly set
         self.gen = 0
 
     def _eval(self, population):
         # Evaluate the individuals with an invalid fitness
         # This way we do not evaluate individuals that we have already seen.
-        tokens_list     = []
-        uncached_ind    = [] 
-        invalid_ind     = [ ind for ind in population if not ind.fitness.valid ]
+        tokens_list = []
+        uncached_ind = []
+        invalid_ind = [ind for ind in population if not ind.fitness.valid]
         for ind in invalid_ind:
             # Get from deap to numpy array
             # Make sure token is equiv with program finished token used for cache key
@@ -51,23 +52,23 @@ class RunOneStepAlgorithm:
                 # we've seen this one before, copy back the reward.
                 # We use a try loop to avoid double look-ups in the dict
                 p = Program.cache[tokens.tostring()]
-                ind.fitness.values = (-p.r,)
+                ind.fitness.values = (-p.r, )
             except (KeyError, TypeError):
                 # We have not seen this one, we need to compute reward
                 tokens_list.append(tokens)
                 # Keep track of uncached inds for now
                 uncached_ind.append(ind)
-                # Deap demands this is a value and not None. positive inf should not 
+                # Deap demands this is a value and not None. positive inf should not
                 # be viable since rewards are always negative (are penalties) in Deap.
-                ind.fitness.values = (np.inf,)
+                ind.fitness.values = (np.inf, )
 
         # Calls either map or pool.map
-        programs    = list(self.toolbox.cmap(_eval_step, tokens_list))
+        programs = list(self.toolbox.cmap(_eval_step, tokens_list))
         for i, ind in enumerate(population):
             if np.isposinf(ind.fitness.values[0]):
                 p = programs.pop(0)
-                ind.fitness.values = (-p.r,)
-                Program.cache[p.str] = p 
+                ind.fitness.values = (-p.r, )
+                Program.cache[p.str] = p
 
         return population, invalid_ind, uncached_ind
 
@@ -96,16 +97,16 @@ class RunOneStepAlgorithm:
 
         # Select the next generation individuals
         offspring = self.toolbox.select(self.population, len(self.population))
-  
+
         # Vary the pool of individuals
         offspring = self._var_and(offspring)
 
         # Evaluate the individuals with an invalid fitness
         population, invalid_ind, uncached_ind = self._eval(offspring)
-        
-        pop_size        = len(population)       # Total population size 
-        nevals          = len(invalid_ind)      # New individuals which are Deap not valid (Not yet evaluated)
-        uncached_size   = len(uncached_ind)     # Individuals which are not in cache 
+
+        pop_size = len(population)  # Total population size
+        nevals = len(invalid_ind)  # New individuals which are Deap not valid (Not yet evaluated)
+        uncached_size = len(uncached_ind)  # Individuals which are not in cache
 
         # Replace the current population by the offspring
         self.population[:] = offspring
@@ -113,15 +114,19 @@ class RunOneStepAlgorithm:
         # Update hall of fame
         if hof is not None:
             hof.update(self.population)
-            best_val = best_val=hof[0].fitness.values
+            best_val = best_val = hof[0].fitness.values
         else:
             best_val = None
 
         timer = time.perf_counter() - t1
 
-        self.logbook.record(gen=self.gen, iter=iter, pop_size=pop_size,
-                            nevals=nevals, uncached_size=uncached_size,
-                            best_val=best_val, timer=timer)
+        self.logbook.record(gen=self.gen,
+                            iter=iter,
+                            pop_size=pop_size,
+                            nevals=nevals,
+                            uncached_size=uncached_size,
+                            best_val=best_val,
+                            timer=timer)
 
         if self.verbose:
             print(self.logbook.stream)

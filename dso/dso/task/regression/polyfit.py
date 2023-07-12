@@ -13,6 +13,7 @@ class PolyRegressorMixin:
     """
     Defines auxiliary functions to be used by DSO's specialized regressors
     """
+
     def np_array_signature(self, X):
         """
         Computes simplified hash of matrix X (m rows, n columns, m > n) for polynomial fitting purposes.
@@ -26,10 +27,11 @@ class PolyRegressorMixin:
         result : int
             Simplified hash of X.
         """
-        return hash((X.shape,                                               # array shape
-                     X.diagonal().tobytes(),                                # main (top) diagonal
-                     X.diagonal(offset=X.shape[1]-X.shape[0]).tobytes()))   # lowest diagonal
-        
+        return hash((
+            X.shape,  # array shape
+            X.diagonal().tobytes(),  # main (top) diagonal
+            X.diagonal(offset=X.shape[1] - X.shape[0]).tobytes()))  # lowest diagonal
+
     def delete_oldest_pair(self, dictionary):
         """
         Deletes oldest (key, value) pair from dictionary.
@@ -46,31 +48,32 @@ class PolyRegressorMixin:
                 max_c || X c - y || : indexing * c = 0
         """
         # 1. form D = XtX_inv * indexing^T = (indexing * XtX_inv)^T = XtX_inv[indexing,:]^T
-        D = np.ascontiguousarray(XtX_inv[zero_out_indices,:].transpose())
+        D = np.ascontiguousarray(XtX_inv[zero_out_indices, :].transpose())
         # 2. form E = indexing * D = D[indexing,:]
-        E = D[zero_out_indices,:]
+        E = D[zero_out_indices, :]
         # NOTE: E is just a minor of XtX_inv, hence it is symmetric and positive definite
         # 3. solve linear system E * z = cLS[indexing]
-        z = scipy.linalg.solve(E, cLS[zero_out_indices], assume_a="pos")    # take advantage D is PD
+        z = scipy.linalg.solve(E, cLS[zero_out_indices], assume_a="pos")  # take advantage D is PD
         # 4. compute solution with zero-ed out components and return
         return cLS - np.matmul(D, z)
-    
+
     def regression_p_values(self, X, XtX_inv, y, c):
         """
         Computes p-values using t-Test (null hyphotesis: c_i == 0)
         """
         yhat = np.matmul(X, c)
         df = len(X) - X.shape[1]
-        mse = sum((y - yhat)**2)/df
+        mse = sum((y - yhat)**2) / df
         sd_err = np.sqrt(mse * XtX_inv.diagonal())
-        t_vals = c/sd_err
+        t_vals = c / sd_err
         return 2 * (1 - stats.t.cdf(np.abs(t_vals), df))
-    
+
 
 class DSOLeastSquaresData:
     """
     Holds Gram inverse and pseudo-inverse
     """
+
     def __init__(self, X, compute_inv=False):
         if X.shape[0] < X.shape[1]:
             raise AssertionError("X should have more rows than columns.")
@@ -83,11 +86,13 @@ class DSOLeastSquaresData:
         else:
             self.XtX_inv = None
 
+
 class DSOLeastSquaresRegressor(PolyRegressorMixin):
     """
     Solve the problem min_{c} || X*c - y || by applying the psuedo-inverse
             c = (X^T*X)^{-1} * X^T * y
     """
+
     def __init__(self, cutoff_p_value=1.0, n_max_terms=None, coef_tol=1E-12):
         # include intercept_ just to match with sklearn regressors
         self.intercept_ = 0.0
@@ -100,14 +105,14 @@ class DSOLeastSquaresRegressor(PolyRegressorMixin):
         else:
             raise ValueError("cutoff p-value should be in (0., 1.]")
         if (isinstance(n_max_terms, int) and n_max_terms >= 2) or n_max_terms is None:
-           # 2 terms: constant + term
+            # 2 terms: constant + term
             self.n_max_terms_ = n_max_terms
         elif isinstance(n_max_terms, int):
             raise ValueError("maximum number of terms should be >= 2")
         else:
             raise TypeError("n_max_terms should be int or None")
         self.coef_tol_ = coef_tol
-    
+
     def fit(self, X, y, X_signature=None):
         """
         Linear fit between X (data) and y (observations)
@@ -118,8 +123,8 @@ class DSOLeastSquaresRegressor(PolyRegressorMixin):
         if X_signature not in self.data_dict.keys():
             while len(self.data_dict) >= self.n_max_records:
                 self.delete_oldest_pair(self.data_dict)
-            self.data_dict[X_signature] = DSOLeastSquaresData(X, self.cutoff_p_value_ < 1.0 or
-                                                                 self.n_max_terms_ is not None)
+            self.data_dict[X_signature] = DSOLeastSquaresData(
+                X, self.cutoff_p_value_ < 1.0 or self.n_max_terms_ is not None)
         # perform regression
         lsd = self.data_dict[X_signature]
         self.coef_ = np.matmul(lsd.X_pinv, y)
@@ -132,32 +137,32 @@ class DSOLeastSquaresRegressor(PolyRegressorMixin):
             # sort coefficients from smallets to largest p-value
             perm = np.argsort(p_values)
             # compute number of terms to keep
-            n_terms = next((x[0] for x in enumerate(perm) if p_values[x[1]] > self.cutoff_p_value_),
-                           len(p_values))
+            n_terms = next((x[0] for x in enumerate(perm) if p_values[x[1]] > self.cutoff_p_value_), len(p_values))
             if self.n_max_terms_ is not None:
                 n_terms = np.minimum(n_terms, self.n_max_terms_)
             # zero-out coefficients with largest p-values
             if n_terms < len(self.coef_):
                 zero_out_indices = np.sort(perm[n_terms:])
                 self.coef_ = self.zero_out_ls_terms(self.coef_, lsd.XtX_inv, zero_out_indices)
-    
+
     def clear(self):
         """
         Reset memory allocated to pseudo-inverses
         """
         self.data_dict.clear()
-    
+
 
 class DSOLassoRegressorData:
     """
     Holds information useful for multiple calls to DSOLassoRegressor
     """
+
     def __init__(self, X):
         self.XtX_inv = scipy.linalg.inv(np.matmul(X.transpose(), X))
         self.X_pinv = np.matmul(self.XtX_inv, X.transpose())
         self.n_obs = X.shape[0]
         self.n_params = X.shape[1]
-    
+
 
 class DSOLassoRegressor(PolyRegressorMixin):
     """
@@ -166,16 +171,17 @@ class DSOLassoRegressor(PolyRegressorMixin):
     
     Implementation solves dual Lasso problem.
     """
+
     def __init__(self, gamma=0.1, comp_tol=1E-4, rtrn_constrnd_ls=True):
-        # include intercept_ just to match with sklearn regressors        
+        # include intercept_ just to match with sklearn regressors
         self.intercept_ = 0.0
         self.coef_ = None
-        self.gamma_ = gamma         # L1 weight -- standarized
-        self.comp_tol_ = comp_tol   # tolerance for complementarity slackness
-        self.rtrn_constrnd_ls_ = rtrn_constrnd_ls       # return re-optimized sparse least-squares
+        self.gamma_ = gamma  # L1 weight -- standarized
+        self.comp_tol_ = comp_tol  # tolerance for complementarity slackness
+        self.rtrn_constrnd_ls_ = rtrn_constrnd_ls  # return re-optimized sparse least-squares
         self.data_dict = {}
         self.n_max_records = 10
-    
+
     def fit(self, X, y, X_signature=None):
         # check if signature is provided, compute signature otherwise
         if X_signature is None:
@@ -187,18 +193,17 @@ class DSOLassoRegressor(PolyRegressorMixin):
             self.data_dict[X_signature] = DSOLassoRegressorData(X)
         # perform lasso fit
         ldata = self.data_dict[X_signature]
-        self.coef_ = self.dual_lasso(ldata.XtX_inv, ldata.X_pinv,
-                                     ldata.n_obs, ldata.n_params, y)
-    
+        self.coef_ = self.dual_lasso(ldata.XtX_inv, ldata.X_pinv, ldata.n_obs, ldata.n_params, y)
+
     def dual_lasso(self, XtX_inv, X_pinv, n_obs, n_params, y):
         # compute program parameters
         beta_LS = np.matmul(X_pinv, y)  # least squares solution
-        rho_bnd = n_obs/n_params * np.var(y) * self.gamma_
+        rho_bnd = n_obs / n_params * np.var(y) * self.gamma_
 
         # currently only scipy.minimize is supported as the solver
         # objective function and derivatives
-        f_obj = lambda rho : 1/2 * np.dot(rho, np.matmul(XtX_inv, rho)) - np.dot(beta_LS, rho)
-        g_obj = lambda rho : np.matmul(XtX_inv, rho) - beta_LS
+        f_obj = lambda rho: 1 / 2 * np.dot(rho, np.matmul(XtX_inv, rho)) - np.dot(beta_LS, rho)
+        g_obj = lambda rho: np.matmul(XtX_inv, rho) - beta_LS
         # define initial guess
         rho_init = rho_bnd * np.ones(n_params)
         rho_init[beta_LS > 0.0] *= -1.0
@@ -211,53 +216,55 @@ class DSOLassoRegressor(PolyRegressorMixin):
 
         if self.rtrn_constrnd_ls_:
             # determine indexes to zero-out
-            zero_out_indices = [i for i in range(n_params) if 
-                                0.25 * (1 + rho_opt[i]/rho_bnd) * (1 - rho_opt[i]/rho_bnd) > self.comp_tol_]
+            zero_out_indices = [
+                i for i in range(n_params)
+                if 0.25 * (1 + rho_opt[i] / rho_bnd) * (1 - rho_opt[i] / rho_bnd) > self.comp_tol_
+            ]
             # recompute least squares with zero-ed out coefficients
             beta_cLS = self.zero_out_ls_terms(beta_LS, XtX_inv, zero_out_indices)
-            beta_cLS[zero_out_indices] = 0.0    # these will be zero up to floating point precision
+            beta_cLS[zero_out_indices] = 0.0  # these will be zero up to floating point precision
             return beta_cLS
         else:
             # compute lasso regressor parameters
             beta_Lasso = beta_LS - np.matmul(XtX_inv, rho_opt)
             # crash (dual) interior interior point solution
             for i in range(n_params):
-                if 0.25 * (1 + rho_opt[i]/rho_bnd) * (1 - rho_opt[i]/rho_bnd) > self.comp_tol_:
+                if 0.25 * (1 + rho_opt[i] / rho_bnd) * (1 - rho_opt[i] / rho_bnd) > self.comp_tol_:
                     beta_Lasso[i] = 0.0
             # return solution
             return beta_Lasso
-        
+
     def clear(self):
         """
         Reset memory allocated to Gram inverse and pseudo inverse
         """
         self.data_dict.clear()
-    
+
 
 regressors = {
-        "linear_regression": LinearRegression,
-        "lasso": Lasso,
-        "ridge": Ridge,
-        "dso_least_squares" : DSOLeastSquaresRegressor,
-        "dso_lasso" : DSOLassoRegressor,
-    }
+    "linear_regression": LinearRegression,
+    "lasso": Lasso,
+    "ridge": Ridge,
+    "dso_least_squares": DSOLeastSquaresRegressor,
+    "dso_lasso": DSOLassoRegressor,
+}
 
 inverse_function_map = {
-    "add" : np.subtract,
-    "sub" : np.add,
-    "mul" : np.divide,
-    "div" : np.multiply,
-    "sin" : np.arcsin,
-    "cos" : np.arccos,
-    "tan" : np.arctan,
-    "exp" : np.log,
-    "log" : np.exp,
-    "sqrt" : np.square,
-    "n2" : np.sqrt,
-    "n3" : np.cbrt,
-    "abs" : np.abs,
-    "tanh" : np.arctanh,
-    "inv" : np.reciprocal
+    "add": np.subtract,
+    "sub": np.add,
+    "mul": np.divide,
+    "div": np.multiply,
+    "sin": np.arcsin,
+    "cos": np.arccos,
+    "tan": np.arctan,
+    "exp": np.log,
+    "log": np.exp,
+    "sqrt": np.square,
+    "n2": np.sqrt,
+    "n3": np.cbrt,
+    "abs": np.abs,
+    "tanh": np.arctanh,
+    "inv": np.reciprocal
 }
 
 
@@ -345,11 +352,11 @@ def nonnegative_int_tuples_to_sum(length, given_sum):
     https://stackoverflow.com/questions/7748442/generate-all-possible-lists-of-length-n-that-sum-to-s-in-python
     """
     if length == 1:
-        yield (given_sum,)
+        yield (given_sum, )
     else:
         for value in range(given_sum + 1):
             for permutation in nonnegative_int_tuples_to_sum(length - 1, given_sum - value):
-                yield (value,) + permutation
+                yield (value, ) + permutation
 
 
 def generate_all_exponents(n_input_var, degree):
@@ -367,6 +374,7 @@ class PolyOptimizerData(PolyRegressorMixin):
     """
     Helper class to process and hold data passed to the polynomial optimizer
     """
+
     def __init__(self, X, degree, X_signature_=None):
         """
         Generate and store the data for all the monomials (basis for poly).
@@ -386,9 +394,10 @@ class PolyOptimizerData(PolyRegressorMixin):
             self.X_signature = self.np_array_signature(X)
         else:
             self.X_signature = X_signature_
-    
+
 
 class PolyOptimizer(PolyRegressorMixin):
+
     def __init__(self, degree, coef_tol, regressor, regressor_params):
         """
         Optimizer for fitting a polynomial in traversals to given datasets.
@@ -435,33 +444,33 @@ class PolyOptimizer(PolyRegressorMixin):
             while len(self.data_dict) >= self.n_max_records:
                 self.delete_oldest_pair(self.data_dict)
             self.data_dict[X_signature] = PolyOptimizerData(X, self.degree, X_signature)
-        
+
         # reference to PolyOptimizerData object (to avoid multiple lookups)
         pod = self.data_dict[X_signature]
-        
+
         try:
             # perform fit; pass monomial data signature if using custom DSO optimizers
-            if isinstance(self.regressor, (DSOLeastSquaresRegressor,)):
+            if isinstance(self.regressor, (DSOLeastSquaresRegressor, )):
                 self.regressor.fit(pod.all_monomials_data, y, pod.X_signature)
             else:
                 self.regressor.fit(pod.all_monomials_data, y)
-        except: # the only thing we have seen is ValueError
-            return Polynomial([(0,)*X.shape[1]], np.ones(1))
-        
+        except:  # the only thing we have seen is ValueError
+            return Polynomial([(0, ) * X.shape[1]], np.ones(1))
+
         # Correct the coefficient of the constant term when regressor.intercept_ is nonzero.
         # This can happen when fit_intercept in regressor_params is True.
-        if self.regressor.intercept_ != 0.0: 
+        if self.regressor.intercept_ != 0.0:
             self.regressor.coef_[0] += self.regressor.intercept_
 
         if np.isfinite(self.regressor.coef_).all():
             mask = np.abs(self.regressor.coef_) >= self.coef_tol
             if np.count_nonzero(mask) == 0:
                 # fit succesful, but all coefficients are zero
-                return Polynomial([(0,)*X.shape[1]], np.ones(0))
+                return Polynomial([(0, ) * X.shape[1]], np.ones(0))
             return Polynomial(list(compress(pod.all_exponents, mask)), self.regressor.coef_[mask])
-        
-        return Polynomial([(0,)*X.shape[1]], np.ones(1))
-    
+
+        return Polynomial([(0, ) * X.shape[1]], np.ones(1))
+
     def clear(self):
         """
         Reset memory allocated to exponents and monomials data, and to cached regressor data
@@ -469,10 +478,10 @@ class PolyOptimizer(PolyRegressorMixin):
         self.data_dict.clear()
         if isinstance(self.regressor, (DSOLeastSquaresRegressor, DSOLassoRegressor)):
             self.regressor.clear()
-        
-    
+
 
 class PolyGenerator(object):
+
     def __init__(self, degree, n_input_var):
         """
         Parameters
@@ -484,8 +493,7 @@ class PolyGenerator(object):
         """
         self.all_exponents = generate_all_exponents(n_input_var, degree)
 
-    def generate(self, n_terms_mean=2, n_terms_sd=1,
-                 coef_mean=0, coef_sd=10, coef_precision=2):
+    def generate(self, n_terms_mean=2, n_terms_sd=1, coef_mean=0, coef_sd=10, coef_precision=2):
         """
         Generate a Polynomial token. The number of terms and the coefficients of the
         terms are sampled from normal distributions based on the input parameters.

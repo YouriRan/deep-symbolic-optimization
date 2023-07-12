@@ -127,15 +127,15 @@ class HierarchicalTask(Task):
     (unselected) nodes.
     """
 
-    OBS_DIM = 4 # action, parent, sibling, dangling
+    OBS_DIM = 4  # action, parent, sibling, dangling
 
     def __init__(self):
         super(Task).__init__()
 
     def get_next_obs(self, actions, obs, already_finished):
 
-        dangling = obs[:, 3] # Shape of obs: (?, 4)
-        action = actions[:, -1] # Current action
+        dangling = obs[:, 3]  # Shape of obs: (?, 4)
+        action = actions[:, -1]  # Current action
         lib = self.library
 
         # Compute parents and siblings
@@ -149,16 +149,15 @@ class HierarchicalTask(Task):
         dangling += lib.arities[action] - 1
 
         # Compute finished
-        just_finished = (dangling == 0) # Trees that completed _this_ time step
+        just_finished = (dangling == 0)  # Trees that completed _this_ time step
         # [batch_size]
-        finished = np.logical_or(just_finished,
-                                 already_finished)
+        finished = np.logical_or(just_finished, already_finished)
 
         # Compute priors
-        prior = self.prior(actions, parent, sibling, dangling, finished) # (?, n_choices)
-        
+        prior = self.prior(actions, parent, sibling, dangling, finished)  # (?, n_choices)
+
         # Combine observation dimensions
-        next_obs = np.stack([action, parent, sibling, dangling], axis=1) # (?, 4)
+        next_obs = np.stack([action, parent, sibling, dangling], axis=1)  # (?, 4)
         next_obs = next_obs.astype(np.float32)
 
         return next_obs, prior, finished
@@ -172,10 +171,7 @@ class HierarchicalTask(Task):
         self.prior = prior
 
         # Order of observations: action, parent, sibling, dangling
-        initial_obs = np.array([self.library.EMPTY_ACTION,
-                                self.library.EMPTY_PARENT,
-                                self.library.EMPTY_SIBLING,
-                                1],
+        initial_obs = np.array([self.library.EMPTY_ACTION, self.library.EMPTY_PARENT, self.library.EMPTY_SIBLING, 1],
                                dtype=np.float32)
         return initial_obs
 

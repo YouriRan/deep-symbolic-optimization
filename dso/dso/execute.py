@@ -50,6 +50,7 @@ def python_execute(traversal, X):
     assert False, "Function should never get here!"
     return None
 
+
 def cython_execute(traversal, X):
     """
     Execute cython function using given traversal over input X.
@@ -73,5 +74,3 @@ def cython_execute(traversal, X):
         return cyfunc.execute(X, len(traversal), traversal, is_input_var)
     else:
         return python_execute(traversal, X)
-
-

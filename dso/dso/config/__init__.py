@@ -24,7 +24,8 @@ def get_base_config(task, language_prior):
 
     # Load language prior config
     if language_prior:
-        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "config_language.json"), encoding='utf-8') as f:
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "config_language.json"),
+                  encoding='utf-8') as f:
             language_config = json.load(f)
         task_config = safe_merge_dicts(task_config, language_config)
 

@@ -1,18 +1,20 @@
 from abc import ABC, abstractmethod
 
-import tensorflow as tf
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 from dso.program import Program
 
 
 class StateManager(ABC):
     """
-    An interface for handling the tf.Tensor inputs to the Policy.
+    An interface for handling the torch.Tensor inputs to the Policy.
     """
 
     def setup_manager(self, policy):
         """
-        Function called inside the policy to perform the needed initializations (e.g., if the tf context is needed)
+        Function called inside the policy to perform the needed initializations (e.g., if the torch context is needed)
         :param policy the policy class
         """
         self.policy = policy
@@ -26,12 +28,12 @@ class StateManager(ABC):
 
         Parameters
         ----------
-        obs : np.ndarray (dtype=np.float32)
+        obs : torch.Tensor (dtype=torch.float32)
             Observation coming from the Task.
 
         Returns
         --------
-        input_ : tf.Tensor (dtype=tf.float32)
+        input_ : torch.Tensor (dtype=torch.float32)
             Tensor to be used as input to the Policy.
         """
         return
@@ -56,9 +58,7 @@ def make_state_manager(config):
     state_manager : StateManager
         The StateManager to be used by the policy.
     """
-    manager_dict = {
-        "hierarchical": HierarchicalStateManager
-    }
+    manager_dict = {"hierarchical": HierarchicalStateManager}
 
     if config is None:
         config = {}
@@ -78,8 +78,12 @@ class HierarchicalStateManager(StateManager):
     observations.
     """
 
-    def __init__(self, observe_parent=True, observe_sibling=True,
-                 observe_action=False, observe_dangling=False, embedding=False,
+    def __init__(self,
+                 observe_parent=True,
+                 observe_sibling=True,
+                 observe_action=False,
+                 observe_dangling=False,
+                 embedding=False,
                  embedding_size=8):
         """
         Parameters
@@ -114,65 +118,50 @@ class HierarchicalStateManager(StateManager):
 
         self.embedding = embedding
         self.embedding_size = embedding_size
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     def setup_manager(self, policy):
         super().setup_manager(policy)
         # Create embeddings if needed
+        # Create embeddings if needed
         if self.embedding:
-            initializer = tf.random_uniform_initializer(minval=-1.0,
-                                                        maxval=1.0,
-                                                        seed=0)
-            with tf.variable_scope("embeddings", initializer=initializer):
-                if self.observe_action:
-                    self.action_embeddings = tf.get_variable("action_embeddings",
-                                                             [self.library.n_action_inputs, self.embedding_size],
-                                                             trainable=True)
-                if self.observe_parent:
-                    self.parent_embeddings = tf.get_variable("parent_embeddings",
-                                                             [self.library.n_parent_inputs, self.embedding_size],
-                                                             trainable=True)
-                if self.observe_sibling:
-                    self.sibling_embeddings = tf.get_variable("sibling_embeddings",
-                                                              [self.library.n_sibling_inputs, self.embedding_size],
-                                                              trainable=True)
+            self.action_embeddings = nn.Embedding(self.library.n_action_inputs, self.embedding_size).to(self.device)
+            self.parent_embeddings = nn.Embedding(self.library.n_parent_inputs, self.embedding_size).to(self.device)
+            self.sibling_embeddings = nn.Embedding(self.library.n_sibling_inputs, self.embedding_size).to(self.device)
 
     def get_tensor_input(self, obs):
         observations = []
-        unstacked_obs = tf.unstack(obs, axis=1)
-        action, parent, sibling, dangling = unstacked_obs[:4]
+        action, parent, sibling, dangling = obs.split(1, dim=1)
 
         # Cast action, parent, sibling to int for embedding_lookup or one_hot
-        action = tf.cast(action, tf.int32)
-        parent = tf.cast(parent, tf.int32)
-        sibling = tf.cast(sibling, tf.int32)
+        action = action.long()
+        parent = parent.long()
+        sibling = sibling.long()
 
         # Action, parent, and sibling inputs are either one-hot or embeddings
         if self.observe_action:
             if self.embedding:
-                x = tf.nn.embedding_lookup(self.action_embeddings, action)
+                x = self.action_embeddings(action)
             else:
-                x = tf.one_hot(action, depth=self.library.n_action_inputs)
+                x = F.one_hot(action, num_classes=self.library.n_action_inputs)
             observations.append(x)
         if self.observe_parent:
             if self.embedding:
-                x = tf.nn.embedding_lookup(self.parent_embeddings, parent)
+                x = self.parent_embeddings(parent)
             else:
-                x = tf.one_hot(parent, depth=self.library.n_parent_inputs)
+                x = F.one_hot(parent, num_classes=self.librar.n_parent_inputs)
             observations.append(x)
         if self.observe_sibling:
             if self.embedding:
-                x = tf.nn.embedding_lookup(self.sibling_embeddings, sibling)
+                x = self.sibling_embeddings(sibling)
             else:
-                x = tf.one_hot(sibling, depth=self.library.n_sibling_inputs)
+                x = F.one_hot(sibling, num_classes=self.library.n_sibling_inputs)
             observations.append(x)
 
         # Dangling input is just the value of dangling
         if self.observe_dangling:
-            x = tf.expand_dims(dangling, axis=-1)
+            x = dangling.unsqueeze(-1)
             observations.append(x)
 
-        input_ = tf.concat(observations, -1)
-        # possibly concatenates additional observations (e.g., bert embeddings)
-        if len(unstacked_obs) > 4:
-            input_ = tf.concat([input_, tf.stack(unstacked_obs[4:], axis=-1)], axis=-1)
+        input_ = torch.cat(observations, -1)
         return input_

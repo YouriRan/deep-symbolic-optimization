@@ -9,7 +9,7 @@ import numpy as np
 
 from dso.program import Program, from_str_tokens
 from dso.task import set_task
-import dso.task.control # Register custom envs
+import dso.task.control  # Register custom envs
 import dso.task.control.utils as U
 
 DEFAULT_SCALES = [0.5, 0.6, 0.7, 0.8, 0.9, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0]
@@ -17,63 +17,54 @@ POSITIVE_SCALES = [1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0]
 
 ENVIRONMENTS = {
     "CustomContinuousCartPole-v0": {
-        "n_actions" : 1,
-        "env_kwargs" : {
-            "dt_multiplier" : DEFAULT_SCALES
+        "n_actions": 1,
+        "env_kwargs": {
+            "dt_multiplier": DEFAULT_SCALES
         }
-    }, 
-    "MountainCarContinuous-v0" : {
-        "n_actions" : 1,
-        "env_kwargs" : {
-            "power_multiplier" : DEFAULT_SCALES,
-            "starting_state_multiplier" : POSITIVE_SCALES
+    },
+    "MountainCarContinuous-v0": {
+        "n_actions": 1,
+        "env_kwargs": {
+            "power_multiplier": DEFAULT_SCALES,
+            "starting_state_multiplier": POSITIVE_SCALES
         },
         # "symbolic" : ["div,mul,0.05,log,x2,add,x2,log,mul,10.0,x2"]
-        "symbolic" : ["div,log,cos,1.0,log,x2"] # 99.09
+        "symbolic": ["div,log,cos,1.0,log,x2"]  # 99.09
     },
-    "Pendulum-v0" : {
-        "n_actions" : 1,
-        "env_kwargs" : {
-            "dt_multiplier" : DEFAULT_SCALES,
+    "Pendulum-v0": {
+        "n_actions": 1,
+        "env_kwargs": {
+            "dt_multiplier": DEFAULT_SCALES,
             # "gravity_multiplier" : DEFAULT_SCALES,
             # "mass_multiplier" : DEFAULT_SCALES,
             # "length_multiplier" : DEFAULT_SCALES,
             # "starting_state_multiplier" : POSITIVE_SCALES
         },
-        "symbolic" : ["add,mul,-2.0,x2,div,add,mul,-8.0,x2,mul,-2.0,x3,x1"]
+        "symbolic": ["add,mul,-2.0,x2,div,add,mul,-8.0,x2,mul,-2.0,x3,x1"]
     },
-    "InvertedDoublePendulumBulletEnv-v0" : {
-        "n_actions" : 1,
-        "env_kwargs" : {}
+    "InvertedDoublePendulumBulletEnv-v0": {
+        "n_actions": 1,
+        "env_kwargs": {}
     },
-    "InvertedPendulumSwingupBulletEnv-v0" : {
-        "n_actions" : 1,
-        "env_kwargs" : {}
+    "InvertedPendulumSwingupBulletEnv-v0": {
+        "n_actions": 1,
+        "env_kwargs": {}
     },
-    "LunarLanderContinuous-v2" : {
-        "n_actions" : 2,
-        "env_kwargs" : {}
+    "LunarLanderContinuous-v2": {
+        "n_actions": 2,
+        "env_kwargs": {}
     },
-    "ReacherBulletEnv-v0" : {
-        "n_actions" : 2,
-        "env_kwargs" : {}
+    "ReacherBulletEnv-v0": {
+        "n_actions": 2,
+        "env_kwargs": {}
     },
-    "HopperBulletEnv-v0" : {
-        "n_actions" : 3,
-        "env_kwargs" : {}
+    "HopperBulletEnv-v0": {
+        "n_actions": 3,
+        "env_kwargs": {}
     }
 }
 
-ALGORITHMS = [
-    'a2c',
-    'acktr',
-    'ddpg',
-    'sac',
-    'ppo2',
-    'trpo',
-    'td3',
-    'symbolic'
-]
+ALGORITHMS = ['a2c', 'acktr', 'ddpg', 'sac', 'ppo2', 'trpo', 'td3', 'symbolic']
 
 
 @click.command()
@@ -101,12 +92,14 @@ def main(zoo_root, alg, env, n_episodes, output_filename, robustness):
 
     # Write header
     if not os.path.isfile(output_filename):
-        pd.DataFrame({"Environment" : [],
-                    "Algorithm" : [],
-                    "Score" : [],
-                    "Episodes" : [],
-                    "Parameter" : [],
-                    "Value" : []}).to_csv(output_filename, index=False)
+        pd.DataFrame({
+            "Environment": [],
+            "Algorithm": [],
+            "Score": [],
+            "Episodes": [],
+            "Parameter": [],
+            "Value": []
+        }).to_csv(output_filename, index=False)
 
     for alg in algorithms:
 
@@ -160,21 +153,21 @@ def main(zoo_root, alg, env, n_episodes, output_filename, robustness):
                     name = "Custom" + name
                 for key, values in ENVIRONMENTS[env]["env_kwargs"].items():
                     for val in values:
-                        env_kwargs_combinations.append({key : val})
+                        env_kwargs_combinations.append({key: val})
 
             for env_kwargs in env_kwargs_combinations:
                 config_task = {
-                    "task_type" : "control",
-                    "env" : name,
-                    "anchor" : anchor,
-                    "algorithm" : alg if anchor is not None else None,
-                    "action_spec" : action_spec,
-                    "n_episodes_test" : n_episodes,
-                    "success_score" : 200.0,
-                    "function_set" : ["add","sub","mul","div","sin","cos","exp","log","const"],
+                    "task_type": "control",
+                    "env": name,
+                    "anchor": anchor,
+                    "algorithm": alg if anchor is not None else None,
+                    "action_spec": action_spec,
+                    "n_episodes_test": n_episodes,
+                    "success_score": 200.0,
+                    "function_set": ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"],
                     #"zoo_root" : ZOO_ROOT,
-                    "env_kwargs" : env_kwargs,
-                    "protected" : False
+                    "env_kwargs": env_kwargs,
+                    "protected": False
                 }
 
                 # Generate the eval_function
@@ -196,14 +189,17 @@ def main(zoo_root, alg, env, n_episodes, output_filename, robustness):
                     value = "N/A"
 
                 # Write result
-                print("Finished evaluating {} on {}. Score: {}.".format(alg.upper(), name, score)) 
-                df = pd.DataFrame({"Environment" : [name],
-                                   "Algorithm" : [alg],
-                                   "Score" : [score],
-                                   "Episodes" : [n_episodes],
-                                   "Parameter" : [parameter],
-                                   "Value" : [value]})
+                print("Finished evaluating {} on {}. Score: {}.".format(alg.upper(), name, score))
+                df = pd.DataFrame({
+                    "Environment": [name],
+                    "Algorithm": [alg],
+                    "Score": [score],
+                    "Episodes": [n_episodes],
+                    "Parameter": [parameter],
+                    "Value": [value]
+                })
                 df.to_csv(output_filename, mode='a', header=False, index=False)
+
 
 if __name__ == "__main__":
     main()

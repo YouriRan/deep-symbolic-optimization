@@ -4,6 +4,7 @@ from scipy import linalg
 import time
 
 import sys
+
 args = sys.argv
 if len(args) == 4:
     nparams = int(args[1])
@@ -14,10 +15,11 @@ else:
     nsamples = 1000
     ntries = 100
 
+
 def mat_mult_benchmark(nparams, nsamples):
     # create data
     X = 100.0 * np.random.rand(nsamples, nparams) - 50.0
-    X[:,0] = 1.0
+    X[:, 0] = 1.0
     X_pinv = scipy.linalg.pinv(X)
     X_pinv_32 = X_pinv.astype(np.float32, copy=True)
     y = 100.0 * np.random.rand(nsamples) - 50.0
@@ -39,8 +41,8 @@ def mat_mult_benchmark(nparams, nsamples):
     beta = np.matmul(X_pinv_32, y_32)
     tmatmul32 = time.time() - tmatmul32
     # print results
-    print("pinv-dot: ", tls/tdot, "x; pinv-matmul: ", tls/tmatmul,
-          "x; pinv-matmul32:", tls/tmatmul32, "x")
+    print("pinv-dot: ", tls / tdot, "x; pinv-matmul: ", tls / tmatmul, "x; pinv-matmul32:", tls / tmatmul32, "x")
+
 
 for i in range(ntries):
     mat_mult_benchmark(nparams, nsamples)

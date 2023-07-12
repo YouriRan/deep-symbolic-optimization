@@ -8,9 +8,7 @@ import numpy as np
 from dso.program import from_tokens
 from dso.utils import pad_action_obs_priors
 
-
-Batch = namedtuple(
-    "Batch", ["actions", "obs", "priors", "lengths", "rewards", "on_policy"])
+Batch = namedtuple("Batch", ["actions", "obs", "priors", "lengths", "rewards", "on_policy"])
 
 
 # TBD: This should be member function of Batch class
@@ -61,6 +59,7 @@ def make_queue(policy=None, priority=False, capacity=np.inf, seed=0):
         Base = UniqueQueue
 
     class ProgramQueue(ProgramQueueMixin, Base):
+
         def __init__(self, policy, capacity, seed):
             ProgramQueueMixin.__init__(self, policy)
             Base.__init__(self, capacity, seed)
@@ -84,13 +83,12 @@ def get_samples(batch, key):
         Sub-Batch with samples from the given indices.
     """
 
-    batch = Batch(
-        actions=batch.actions[key],
-        obs=batch.obs[key],
-        priors=batch.priors[key],
-        lengths=batch.lengths[key],
-        rewards=batch.rewards[key],
-        on_policy=batch.on_policy[key])
+    batch = Batch(actions=batch.actions[key],
+                  obs=batch.obs[key],
+                  priors=batch.priors[key],
+                  lengths=batch.lengths[key],
+                  rewards=batch.rewards[key],
+                  on_policy=batch.on_policy[key])
     return batch
 
 
@@ -162,7 +160,10 @@ class Queue(object):
             List of sampled items (of length `sample_size`). Each element in the list
             is a tuple: (item, extra_data).
         """
-        idx = self.rng.choice(len(self.heap), sample_size, )
+        idx = self.rng.choice(
+            len(self.heap),
+            sample_size,
+        )
         return [(self.heap[i].item, self.heap[i].extra_data) for i in idx]
 
     def __len__(self):
@@ -242,8 +243,7 @@ class UniquePriorityQueue(Queue):
         if item in self.unique_items:
             return
         if len(self.heap) >= self.capacity:
-            _, popped_item, _ = heapq.heappushpop(
-                self.heap, ItemContainer(score, item, extra_data))
+            _, popped_item, _ = heapq.heappushpop(self.heap, ItemContainer(score, item, extra_data))
             self.unique_items.add(item)
             self.unique_items.remove(popped_item)
         else:
@@ -349,10 +349,12 @@ class ProgramQueueMixin():
 
         # Pad up to max length across samples
         max_len = max([s.actions.shape[0] for s in samples])
-        padded_aop = [pad_action_obs_priors(np.expand_dims(s.actions, axis=0),
-                                            np.expand_dims(s.obs, axis=0),
-                                            np.expand_dims(s.priors, axis=0),
-                                            pad_length=max_len - s.actions.shape[0]) for s in samples]
+        padded_aop = [
+            pad_action_obs_priors(np.expand_dims(s.actions, axis=0),
+                                  np.expand_dims(s.obs, axis=0),
+                                  np.expand_dims(s.priors, axis=0),
+                                  pad_length=max_len - s.actions.shape[0]) for s in samples
+        ]
 
         actions, obs, priors = zip(*padded_aop)
         actions = np.concatenate(actions, axis=0)
@@ -361,8 +363,7 @@ class ProgramQueueMixin():
         lengths = np.array([s.lengths for s in samples], dtype=np.int32)
         rewards = np.array([s.rewards for s in samples], dtype=np.float32)
         on_policy = np.array([s.on_policy for s in samples], dtype=np.bool)
-        batch = Batch(actions=actions, obs=obs, priors=priors,
-                      lengths=lengths, rewards=rewards, on_policy=on_policy)
+        batch = Batch(actions=actions, obs=obs, priors=priors, lengths=lengths, rewards=rewards, on_policy=on_policy)
         return batch
 
     def to_batch(self):

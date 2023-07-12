@@ -119,6 +119,7 @@ class Polynomial(Token):
     coef : list of float
         A list of coefficients [c1, c2, ..., cm] corresponding to the terms in exponents.
     """
+
     def __init__(self, exponents=None, coef=None):
         self.exponents = exponents
         self.coef = coef
@@ -140,7 +141,7 @@ class Polynomial(Token):
         for basis_count, exponents in enumerate(monomials_exponents):
             for i in range(len(exponents)):
                 if exponents[i] != 0:
-                    monomials[:, basis_count] *= X[:, i] ** exponents[i]
+                    monomials[:, basis_count] *= X[:, i]**exponents[i]
         return monomials
 
     def eval_poly(self, X):
@@ -179,13 +180,13 @@ class Polynomial(Token):
             return []
 
         assert len(self.exponents) == self.coef.shape[0]
-        out = [] if len(self.coef) == 0 else ["add"]*(len(self.coef)-1)
+        out = [] if len(self.coef) == 0 else ["add"] * (len(self.coef) - 1)
         for n, exponents in enumerate(self.exponents):
-            out.extend(["mul"]*np.count_nonzero(exponents))
+            out.extend(["mul"] * np.count_nonzero(exponents))
             for i in range(len(exponents)):
                 if exponents[i] >= 1:
-                    out.extend(["mul"]*(exponents[i]-1))
-                    out.extend(["x{}".format(i + 1)]*exponents[i])
+                    out.extend(["mul"] * (exponents[i] - 1))
+                    out.extend(["x{}".format(i + 1)] * exponents[i])
             out.append(self.coef[n])
         return out
 
@@ -243,9 +244,10 @@ class DiscreteAction(HardCodedConstant):
     the env of the control problem has a Discrete action space.
     Discrete action a_i corresponds to constant value i-1, i = 1, 2, 3, ...
     """
+
     def __init__(self, value):
         assert isinstance(value, int) and value >= 0
-        super().__init__(value, "a_{}".format(value+1))
+        super().__init__(value, "a_{}".format(value + 1))
 
 
 class MultiDiscreteAction(Token):
@@ -260,7 +262,8 @@ class MultiDiscreteAction(Token):
     The traversal [a1_2, STOP] corresponds to the constant action [1, 1, 0],
     while the traversal [a1_3, a3_3, a2_1, STOP] corresponds to [2, 0, 2].
     """
-    n_dims = None # total number of action dimensions
+    n_dims = None  # total number of action dimensions
+
     def __init__(self, value, action_dim=None):
         """
         Parameters
@@ -285,9 +288,9 @@ class MultiDiscreteAction(Token):
             super().__init__(function=self.apply_action, name=name, arity=0, complexity=1)
         else:
             assert isinstance(value, int) and value >= 0
-            name = "a{}_{}".format(action_dim+1, value+1)
+            name = "a{}_{}".format(action_dim + 1, value + 1)
             super().__init__(function=self.apply_action, name=name, arity=1, complexity=1)
-            
+
     def apply_action(self, *args):
         if self.action_dim is None:
             return np.array([self.value.copy()])
@@ -320,23 +323,19 @@ class Library():
         self.names = [t.name for t in tokens]
         self.arities = np.array([t.arity for t in tokens], dtype=np.int32)
 
-        self.input_tokens = np.array(
-            [i for i, t in enumerate(self.tokens) if t.input_var is not None],
-            dtype=np.int32)
+        self.input_tokens = np.array([i for i, t in enumerate(self.tokens) if t.input_var is not None], dtype=np.int32)
 
-        self.state_checker_tokens = np.array(
-            [i for i, t in enumerate(self.tokens) if isinstance(t, StateChecker)],
-            dtype=np.int32)
+        self.state_checker_tokens = np.array([i for i, t in enumerate(self.tokens) if isinstance(t, StateChecker)],
+                                             dtype=np.int32)
 
         self.multi_discrete_tokens = np.array(
-            [i for i, t in enumerate(self.tokens) if isinstance(t, MultiDiscreteAction)],
-            dtype=np.int32)            
+            [i for i, t in enumerate(self.tokens) if isinstance(t, MultiDiscreteAction)], dtype=np.int32)
 
         def get_tokens_of_arity(arity):
             _tokens = [i for i in range(self.L) if self.arities[i] == arity]
             return np.array(_tokens, dtype=np.int32)
 
-        self.tokens_of_arity = defaultdict(lambda : np.array([], dtype=np.int32))
+        self.tokens_of_arity = defaultdict(lambda: np.array([], dtype=np.int32))
         for arity in self.arities:
             self.tokens_of_arity[arity] = get_tokens_of_arity(arity)
         self.terminal_tokens = self.tokens_of_arity[0]
@@ -361,27 +360,20 @@ class Library():
         trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
         trig_names += ["arc" + name for name in trig_names]
 
-        self.float_tokens = np.array(
-            [i for i, t in enumerate(self.tokens) if t.arity == 0 and t.input_var is None],
-            dtype=np.int32)
-        self.trig_tokens = np.array(
-            [i for i, t in enumerate(self.tokens) if t.name in trig_names],
-            dtype=np.int32)
+        self.float_tokens = np.array([i for i, t in enumerate(self.tokens) if t.arity == 0 and t.input_var is None],
+                                     dtype=np.int32)
+        self.trig_tokens = np.array([i for i, t in enumerate(self.tokens) if t.name in trig_names], dtype=np.int32)
 
-        inverse_tokens = {
-            "inv" : "inv",
-            "neg" : "neg",
-            "exp" : "log",
-            "log" : "exp",
-            "sqrt" : "n2",
-            "n2" : "sqrt"
+        inverse_tokens = {"inv": "inv", "neg": "neg", "exp": "log", "log": "exp", "sqrt": "n2", "n2": "sqrt"}
+        token_from_name = {t.name: i for i, t in enumerate(self.tokens)}
+        self.inverse_tokens = {
+            token_from_name[k]: token_from_name[v]
+            for k, v in inverse_tokens.items() if k in token_from_name and v in token_from_name
         }
-        token_from_name = {t.name : i for i, t in enumerate(self.tokens)}
-        self.inverse_tokens = {token_from_name[k] : token_from_name[v] for k, v in inverse_tokens.items() if k in token_from_name and v in token_from_name}
 
-        self.n_action_inputs = self.L + 1 # Library tokens + empty token
-        self.n_parent_inputs = self.L + 1 - len(self.terminal_tokens) # Parent sub-lib tokens + empty token
-        self.n_sibling_inputs = self.L + 1 # Library tokens + empty token
+        self.n_action_inputs = self.L + 1  # Library tokens + empty token
+        self.n_parent_inputs = self.L + 1 - len(self.terminal_tokens)  # Parent sub-lib tokens + empty token
+        self.n_sibling_inputs = self.L + 1  # Library tokens + empty token
         self.n_input_tokens = len(self.input_tokens)
         self.EMPTY_ACTION = self.n_action_inputs - 1
         self.EMPTY_PARENT = self.n_parent_inputs - 1
@@ -413,7 +405,7 @@ class Library():
 
         if isinstance(inputs, str):
             inputs = inputs.split(',')
-        elif not isinstance(inputs, list) and not isinstance(inputs, np.ndarray): # TBD FIX HACK
+        elif not isinstance(inputs, list) and not isinstance(inputs, np.ndarray):  # TBD FIX HACK
             inputs = [inputs]
         tokens = [input_ if isinstance(input_, Token) else self[input_] for input_ in inputs]
         return tokens
@@ -423,8 +415,7 @@ class Library():
         Tokens in the Library."""
 
         tokens = self.tokenize(inputs)
-        actions = np.array([self.tokens.index(t) for t in tokens],
-                           dtype=np.int32)
+        actions = np.array([self.tokens.index(t) for t in tokens], dtype=np.int32)
         return actions
 
 

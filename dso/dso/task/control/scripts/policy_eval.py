@@ -89,16 +89,8 @@ ENVS = {
     }
 }
 
-ALGS = [
-    'a2c',
-    'acktr',
-    'ddpg',
-    'sac',
-    'ppo2',
-    'trpo',
-    'td3',
-    'symbolic'
-]
+ALGS = ['a2c', 'acktr', 'ddpg', 'sac', 'ppo2', 'trpo', 'td3', 'symbolic']
+
 
 def get_env_info(env_name, env):
     print(" ")
@@ -110,6 +102,7 @@ def get_env_info(env_name, env):
 
 
 class Model():
+
     def __init__(self, env_name, alg="zoo"):
         self.alg = alg
         self.model = self.load_model(env_name)
@@ -129,26 +122,25 @@ class Model():
             return U.model
         else:
             if len(ENVS[env_name]["symbolic"]) == 0:
-                 print("WARNING: No symbolic policy available for env '{}'!".format(env_name))
-                 return None
+                print("WARNING: No symbolic policy available for env '{}'!".format(env_name))
+                return None
             config_task = {
-                "task_type" : "control",
-                "env" : env_name,
-                "anchor" : None,
-                "algorithm" : None,
-                "action_spec" : ENVS[env_name]["symbolic"],
-                "n_episodes_test" : 1,
-                "success_score" : 200.0,
-                "function_set" : ["add","sub","mul","div","sin","cos","exp","log","const"],
-                "protected" : False
+                "task_type": "control",
+                "env": env_name,
+                "anchor": None,
+                "algorithm": None,
+                "action_spec": ENVS[env_name]["symbolic"],
+                "n_episodes_test": 1,
+                "success_score": 200.0,
+                "function_set": ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "const"],
+                "protected": False
             }
             # Generate the eval_function
             set_task(config_task)
             Program.clear_cache()
             action_models = []
             for traversal in ENVS[env_name]["symbolic"]:
-                action_models.append(
-                    from_str_tokens(traversal, skip_cache=False))
+                action_models.append(from_str_tokens(traversal, skip_cache=False))
             return action_models
 
     def predict(self, obs):
@@ -168,6 +160,7 @@ class Model():
             prediction = np.array(actions), None
         return prediction, predict_duration
 
+
 @click.command()
 @click.option("--env", multiple=True, type=str, help="Name of environment to run (default: all)")
 @click.option("--alg", multiple=True, type=str, help="Algorithm to run (default: all).")
@@ -176,12 +169,27 @@ class Model():
 @click.option("--seed", type=int, default=0, help="Environment seed.")
 @click.option("--print_env", is_flag=True, help="Print out information about the environment.")
 @click.option("--print_state", is_flag=True, help="Simple way to observe states when stepping through an environment.")
-@click.option("--print_action", is_flag=True, help="Simple way to observe actions when stepping through an environment.")
-@click.option("--print_reward", is_flag=True, help="Simple way to observe rewards when stepping through an environment.")
-@click.option("--print_all", is_flag=True, help="Simple way to observe everything when stepping through an environment.")
+@click.option("--print_action",
+              is_flag=True,
+              help="Simple way to observe actions when stepping through an environment.")
+@click.option("--print_reward",
+              is_flag=True,
+              help="Simple way to observe rewards when stepping through an environment.")
+@click.option("--print_all",
+              is_flag=True,
+              help="Simple way to observe everything when stepping through an environment.")
 @click.option("--record", is_flag=True, help="Record the policy in the environment to an mp4.")
-def main(env, alg, episodes, max_steps, seed=0,
-        print_env=False, print_state=False, print_action=False, print_reward=False, print_all=False, record=False):
+def main(env,
+         alg,
+         episodes,
+         max_steps,
+         seed=0,
+         print_env=False,
+         print_state=False,
+         print_action=False,
+         print_reward=False,
+         print_all=False,
+         record=False):
 
     # Get commit label
     commit_label = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
@@ -212,7 +220,7 @@ def main(env, alg, episodes, max_steps, seed=0,
 
     # Run experiments for each algorithm and environment combination
     for alg in exp_algs:
-        csv_content= []
+        csv_content = []
         text = []
         for env_name in exp_envs:
             # Prepare the gym environment
@@ -262,11 +270,17 @@ def main(env, alg, episodes, max_steps, seed=0,
                         done = True
                 episode_rewards.append(sum(rewards))
                 episode_steps.append(episode_step)
-            text.append("{} [action dim = {}] --> [Reward: {:.4f}] [Steps: {:3d}] [Action latency: {:.4f} ms] [Model load time: {:.4f} s]".format(
-                env_name, action.shape, np.mean(episode_rewards), int(np.mean(episode_steps)), np.mean(action_durations)*1000., model_load_duration))
-            csv_content.append([env_name, alg, episodes, int(np.mean(episode_steps)),
-                np.mean(episode_rewards), model_load_duration, np.mean(action_durations)*1000.,
-                datetime.now(), commit_label])
+            text.append(
+                "{} [action dim = {}] --> [Reward: {:.4f}] [Steps: {:3d}] [Action latency: {:.4f} ms] [Model load time: {:.4f} s]"
+                .format(env_name, action.shape, np.mean(episode_rewards), int(np.mean(episode_steps)),
+                        np.mean(action_durations) * 1000., model_load_duration))
+            csv_content.append([
+                env_name, alg, episodes,
+                int(np.mean(episode_steps)),
+                np.mean(episode_rewards), model_load_duration,
+                np.mean(action_durations) * 1000.,
+                datetime.now(), commit_label
+            ])
 
         # Print summary
         print("=== {} === Averages over {} episodes =========================".format(alg, episodes))
@@ -275,18 +289,20 @@ def main(env, alg, episodes, max_steps, seed=0,
                 print(line)
             file_name = 'policy_eval_results.csv'
             if not os.path.exists(file_name):
-                with open(file_name,'w') as result_file:
+                with open(file_name, 'w') as result_file:
                     file_pointer = csv.writer(result_file, dialect='excel')
-                    file_pointer.writerow(
-                        ["environment", "algorithm", "episodes", "avg_steps_episode",
-                        "avg_rewards_episode", "model_load_s", "action_latency_ms", "date", "commit"])
-            with open(file_name,'a') as result_file:
+                    file_pointer.writerow([
+                        "environment", "algorithm", "episodes", "avg_steps_episode", "avg_rewards_episode",
+                        "model_load_s", "action_latency_ms", "date", "commit"
+                    ])
+            with open(file_name, 'a') as result_file:
                 file_pointer = csv.writer(result_file, dialect='excel')
                 file_pointer.writerows(csv_content)
         else:
             print("No algorithm/environment combinations found.")
         print("")
     print("============================")
+
 
 if __name__ == "__main__":
     main()

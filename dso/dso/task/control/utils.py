@@ -23,7 +23,6 @@ if mpi4py is None:
 else:
     from stable_baselines import DDPG, TRPO
 
-
 ALGORITHMS = {
     'a2c': A2C,
     'acer': ACER,
@@ -81,11 +80,12 @@ class TimeFeatureWrapper(gym.Wrapper):
         equal to zero. This allow to check that the agent did not overfit this feature,
         learning a deterministic pre-defined sequence of actions.
     """
+
     def __init__(self, env, max_steps=1000, test_mode=False):
         assert isinstance(env.observation_space, gym.spaces.Box)
         # Add a time feature to the observation
         low, high = env.observation_space.low, env.observation_space.high
-        low, high= np.concatenate((low, [0])), np.concatenate((high, [1.]))
+        low, high = np.concatenate((low, [0])), np.concatenate((high, [1.]))
         env.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32)
 
         super(TimeFeatureWrapper, self).__init__(env)
@@ -121,6 +121,7 @@ class TimeFeatureWrapper(gym.Wrapper):
 
 
 class RenderEnv(gym.Wrapper):
+
     def __init__(self, env, env_name, alg, save_path):
         """Recording wrapper to simply generate videos from gym environments."""
         super(RenderEnv, self).__init__(env)
@@ -157,8 +158,8 @@ class RenderEnv(gym.Wrapper):
         self.video_recorder = video_recorder.VideoRecorder(
             env=self.env,
             base_path=os.path.join(
-                self.directory,
-                '{}.{}.s{}.{}'.format(self.env_name, self.alg, seed, datetime.now().strftime("%Y-%m-%d-%H%M%S"))),
+                self.directory, '{}.{}.s{}.{}'.format(self.env_name, self.alg, seed,
+                                                      datetime.now().strftime("%Y-%m-%d-%H%M%S"))),
             enabled=True,
         )
         self.video_recorder.capture_frame()
@@ -182,6 +183,6 @@ class RenderEnv(gym.Wrapper):
 
     def _clean_up_metadata(self):
         """Deleting all metadata json files in the directory."""
-        metadata_files = glob(os.path.join(self.directory , "*.json"))
+        metadata_files = glob(os.path.join(self.directory, "*.json"))
         for metadata_file in metadata_files:
             os.remove(metadata_file)

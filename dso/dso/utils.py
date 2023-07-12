@@ -33,12 +33,14 @@ def preserve_global_rng_state(f: Callable):
     Callable
         Decorated function that saves global random state and resets to it after
     """
+
     @functools.wraps(f)
     def decorated(*args, **kwargs):
         rng_state = random.getstate()
         result = f(*args, **kwargs)
         random.setstate(rng_state)
         return result
+
     return decorated
 
 
@@ -83,12 +85,12 @@ def is_pareto_efficient(costs):
     is_efficient = np.arange(costs.shape[0])
     n_points = costs.shape[0]
     next_point_index = 0  # Next index in the is_efficient array to search for
-    while next_point_index<len(costs):
-        nondominated_point_mask = np.any(costs<costs[next_point_index], axis=1)
+    while next_point_index < len(costs):
+        nondominated_point_mask = np.any(costs < costs[next_point_index], axis=1)
         nondominated_point_mask[next_point_index] = True
         is_efficient = is_efficient[nondominated_point_mask]  # Remove dominated points
         costs = costs[nondominated_point_mask]
-        next_point_index = np.sum(nondominated_point_mask[:next_point_index])+1
+        next_point_index = np.sum(nondominated_point_mask[:next_point_index]) + 1
     is_efficient_mask = np.zeros(n_points, dtype=bool)
     is_efficient_mask[is_efficient] = True
     return is_efficient_mask
@@ -150,7 +152,7 @@ def empirical_entropy(labels):
     if n_labels <= 1:
         return 0
 
-    value,counts = np.unique(labels, return_counts=True)
+    value, counts = np.unique(labels, return_counts=True)
     probs = counts / n_labels
     n_classes = np.count_nonzero(probs)
 
@@ -249,10 +251,11 @@ def import_custom_source(import_source):
     """
 
     # Partially validates if the import_source is in correct format
-    regex = '[\w._]+:[\w._]+' #lib_name:class_name
+    regex = '[\w._]+:[\w._]+'  #lib_name:class_name
     m = re.match(pattern=regex, string=import_source)
     # Partial matches mean that the import will fail
-    assert m is not None and m.end() == len(import_source), "*** Failed to import malformed source string: "+import_source
+    assert m is not None and m.end() == len(
+        import_source), "*** Failed to import malformed source string: " + import_source
 
     source, type = import_source.split(':')
 
@@ -261,6 +264,7 @@ def import_custom_source(import_source):
     func = getattr(mod, type)
 
     return func
+
 
 def pad_action_obs_priors(actions, obs, priors, pad_length):
     """
@@ -285,17 +289,17 @@ def pad_action_obs_priors(actions, obs, priors, pad_length):
         priors : np array
             Standard priors array padded with zeros at the end columns
     """
-    assert isinstance(pad_length,int)
+    assert isinstance(pad_length, int)
     assert pad_length >= 0
-    
-    actions = np.pad(actions, ((0,0),(0,pad_length)), 'constant', constant_values=((0,0),(0,0)))
-    obs = [ np.pad(o, ((0,0),(0,pad_length)), 'constant', constant_values=((0,0),(0,0))) for o in obs ]
-    priors = np.pad(priors, ((0,0),(0,pad_length),(0,0)), 'constant', constant_values=((0,0),(0,0),(0,0)))
+
+    actions = np.pad(actions, ((0, 0), (0, pad_length)), 'constant', constant_values=((0, 0), (0, 0)))
+    obs = [np.pad(o, ((0, 0), (0, pad_length)), 'constant', constant_values=((0, 0), (0, 0))) for o in obs]
+    priors = np.pad(priors, ((0, 0), (0, pad_length), (0, 0)), 'constant', constant_values=((0, 0), (0, 0), (0, 0)))
 
     return actions, obs, priors
 
 
-def make_batch_ph(name : str, n_choices : int):
+def make_batch_ph(name: str, n_choices: int):
     """
     Generates dictionary containing placeholders needed for a batch of sequences.
     
@@ -323,12 +327,13 @@ def make_batch_ph(name : str, n_choices : int):
             "actions": tf.placeholder(tf.int32, [None, None]),
             "obs": tf.placeholder(tf.float32, [None, Program.task.OBS_DIM, None]),
             "priors": tf.placeholder(tf.float32, [None, None, n_choices]),
-            "lengths": tf.placeholder(tf.int32, [None, ]),
+            "lengths": tf.placeholder(tf.int32, [
+                None,
+            ]),
             "rewards": tf.placeholder(tf.float32, [None], name="r"),
-            "on_policy": tf.placeholder(tf.int32, [None, ])
-         }
+            "on_policy": tf.placeholder(tf.int32, [
+                None,
+            ])
+        }
         batch_ph = Batch(**batch_ph)
     return batch_ph
-
-
-

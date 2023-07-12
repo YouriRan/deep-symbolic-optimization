@@ -1,6 +1,9 @@
 """Core deep symbolic optimizer construct."""
 
+from typing import Any
 import warnings
+
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 
 warnings.filterwarnings('ignore', category=FutureWarning)
 
@@ -16,6 +19,8 @@ import numpy as np
 import commentjson as json
 
 import torch
+import torch.nn as nn
+import lightning.pytorch as pl
 
 from dso.task import set_task
 from dso.train import Trainer
@@ -30,7 +35,7 @@ from dso.policy.policy import make_policy
 from dso.policy_optimizer import make_policy_optimizer
 
 
-class DeepSymbolicOptimizer():
+class DeepSymbolicOptimizer(pl.LightningModule):
     """
     Deep symbolic optimization model. Includes model hyperparameters and
     training configuration.
@@ -52,68 +57,18 @@ class DeepSymbolicOptimizer():
     """
 
     def __init__(self, config=None):
+        super().__init__()
         self.set_config(config)
-        self.sess = None
 
-    def setup(self):
-
-        # Clear the cache and reset the compute graph
-        Program.clear_cache()
-        torch.cuda.empty_cache()
-
-        # Generate objects needed for training and set seeds
-        self.pool = self.make_pool_and_set_task()
-        self.set_seeds()  # Must be called _after_ resetting graph and _after_ setting task
-
-        # Setup logdirs and output files
-        self.output_file = self.make_output_file()
-        self.save_config()
-
-        # Prepare training parameters
-        self.prior = self.make_prior()
-        self.state_manager = self.make_state_manager()
-        self.policy = self.make_policy()
-        self.policy_optimizer = self.make_policy_optimizer()
-        self.gp_controller = self.make_gp_controller()
-        self.logger = self.make_logger()
-        self.trainer = self.make_trainer()
-        self.checkpoint = self.make_checkpoint()
-
-    def train_one_step(self, override=None):
-        """
-        Train one iteration.
-        """
-
-        # Setup the model
-        if self.sess is None:
-            self.setup()
-
-        # Run one step
-        assert not self.trainer.done, "Training has already completed!"
-        self.trainer.run_one_step(override)
-
-        # Maybe save next checkpoint
+    def training_step(self):
+        assert not self.trainer.done
+        self.trainer.run_one_step()
         self.checkpoint.update()
 
-        # If complete, return summary
-        if self.trainer.done:
-            return self.finish()
-
-    def train(self):
-        """
-        Train the model until completion.
-        """
-
-        # Setup the model
+    def on_train_start(self):
         self.setup()
 
-        # Train the model until done
-        while not self.trainer.done:
-            result = self.train_one_step()
-
-        return result
-
-    def finish(self):
+    def on_train_end(self):
         """
         After training completes, finish up and return summary dict.
         """
@@ -132,8 +87,8 @@ class DeepSymbolicOptimizer():
         # Close the pool
         if self.pool is not None:
             self.pool.close()
-
-        return result
+        self.result = result
+        return
 
     def set_config(self, config):
         config = load_config(config)

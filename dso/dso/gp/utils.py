@@ -21,8 +21,7 @@ class Individual(gp.PrimitiveTree):
         related to binding task, such as number and max mutations.
         It can incorporate more information for future tasks. """
 
-    def __init__(self, actions, pset, max_mutations,
-                 ind_representation, master_sequence):
+    def __init__(self, actions, pset, max_mutations, ind_representation, master_sequence):
         super().__init__(tokens_to_DEAP(actions, pset))
 
         self.ind_representation = ind_representation
@@ -38,8 +37,7 @@ class Individual(gp.PrimitiveTree):
 
     def __deepcopy__(self, memo):
         """ Override gp.PrimitiveTree's deepcopy. """
-        new = Individual(self.tokenized_repr, self.pset,
-                         self.max_mutations, self.ind_representation,
+        new = Individual(self.tokenized_repr, self.pset, self.max_mutations, self.ind_representation,
                          self.master_sequence)
         for k, v in self.__dict__.items():
             setattr(new, k, copy.deepcopy(v, memo))
@@ -53,7 +51,7 @@ class Individual(gp.PrimitiveTree):
         token_repr = self.work_repr.copy()
 
         return token_repr
-  
+
     def update_tree_repr(self):
         """ Update gp.PrimitiveTree from the vector representation. """
         self = tokens_to_DEAP(self.tokenized_repr, self.pset)
@@ -152,7 +150,7 @@ def cxModifiedPMX(ind1, ind2, **kwargs):
 
     # fill offspring 1 - from left to right
     for i in idx_notsel:
-        if offsp_1.num_mutations < offsp_1.max_mutations: 
+        if offsp_1.num_mutations < offsp_1.max_mutations:
             offsp_1.work_repr[i] = int(ind1.work_repr[i])
         else:
             break
@@ -160,7 +158,7 @@ def cxModifiedPMX(ind1, ind2, **kwargs):
 
     # fill offspring 2 - from right to left
     for i in idx_notsel[::-1]:
-        if offsp_2.num_mutations < offsp_2.max_mutations: 
+        if offsp_2.num_mutations < offsp_2.max_mutations:
             offsp_2.work_repr[i] = int(ind2.work_repr[i])
         else:
             break
@@ -182,6 +180,7 @@ def staticLimit(key, max_value):
     crossover operation are illegal."""
 
     def decorator(func):
+
         @wraps(func)
         def wrapper(*args, **kwargs):
 
@@ -198,7 +197,9 @@ def staticLimit(key, max_value):
                     new_inds[i] = keep_inds.pop(pop_index)
 
             return new_inds
+
         return wrapper
+
     return decorator
 
 
@@ -291,7 +292,7 @@ def rename_token(pset, old_name, new_name):
     pset.mapping[new_name].name = new_name
     pset.mapping[new_name].value = new_name
     del pset.mapping[old_name]
-            
+
     return pset
 
 
@@ -309,19 +310,19 @@ def create_primitive_set(lib):
     pset.renameArguments(**rename_kwargs)
 
     for i, token in enumerate(lib.tokens):
-        # Primitives MUST have arity > 0. Deap will error out otherwise. 
+        # Primitives MUST have arity > 0. Deap will error out otherwise.
         if token.arity > 0:
             pset.addPrimitive(None, token.arity, name=i)
         elif token.function is not None:
             # A zero-arity function, e.g. const or 3.14. This is a terminal, but not an input value like x1.
 
-            # We are forced to use a string. Add a t to make it easier to debug naming. 
+            # We are forced to use a string. Add a t to make it easier to debug naming.
             tname = "t{}".format(i)
             # We don't really care about what is in each terminal since they are place holders within deap.
             # So, we set value to None. Name is all we need here since Program will fill in any values for us later.
             pset.addTerminal(None, name=tname)
 
-            # `addTerminal` requires terminal names to be strings. Change back to int. 
+            # `addTerminal` requires terminal names to be strings. Change back to int.
             pset = rename_token(pset, tname, i)
 
     return pset
@@ -331,8 +332,9 @@ def individual_to_dso_aps(individual, library):
     """Convert an individual to a trajectory of observations."""
 
     actions = np.array([[t.name for t in individual]], dtype=np.int32)
-    parent, sibling = jit_parents_siblings_at_once(
-        actions, arities=library.arities, parent_adjust=library.parent_adjust)
+    parent, sibling = jit_parents_siblings_at_once(actions,
+                                                   arities=library.arities,
+                                                   parent_adjust=library.parent_adjust)
     return actions, parent, sibling
 
 
@@ -374,7 +376,7 @@ def DEAP_to_padded_tokens(individual, max_length):
         The tokens corresponding to the individual.
     """
 
-    actions = DEAP_to_tokens(individual) # Convert to unpadded actions
+    actions = DEAP_to_tokens(individual)  # Convert to unpadded actions
     actions_padded = np.zeros(max_length, dtype=np.int32)
     actions_padded[:len(actions)] = actions
     return actions_padded

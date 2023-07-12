@@ -6,7 +6,6 @@ from dso import DeepSymbolicOptimizer
 from dso.config import load_config
 from datetime import datetime
 
-
 N_STEPS = 3
 
 
@@ -44,12 +43,8 @@ def test_checkpoint_manual(tmp_path, pqt):
 
         config = make_config(logdir=tmp_path, seed=i, timestamp=timestamp)
         if pqt:
-            config["policy_optimizer"] = {
-                "policy_optimizer_type" : "pqt",
-                "pqt_k" : 10,
-                "pqt_batch_size" : 3
-            }
-        timestamp = config["experiment"]["timestamp"] # Reuse for next checkpoint
+            config["policy_optimizer"] = {"policy_optimizer_type": "pqt", "pqt_k": 10, "pqt_batch_size": 3}
+        timestamp = config["experiment"]["timestamp"]  # Reuse for next checkpoint
 
         # Load the model from checkpoint, train it one step, then save the checkpoint
         model = DeepSymbolicOptimizer(config)
@@ -68,10 +63,7 @@ def test_checkpoint_config(tmp_path):
     """
 
     config = make_config(logdir=tmp_path, seed=0, timestamp=None)
-    config["checkpoint"] = {
-        "save_freq" : 1,
-        "units" : "iterations"
-    }
+    config["checkpoint"] = {"save_freq": 1, "units": "iterations"}
 
     model = DeepSymbolicOptimizer(config)
     for i in range(N_STEPS):

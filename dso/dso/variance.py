@@ -4,8 +4,13 @@ from dso.program import from_tokens
 from dso.utils import weighted_quantile
 
 
-def quantile_variance(memory_queue, policy, batch_size, epsilon, step,
-                      n_experiments=1000, estimate_bias=True,
+def quantile_variance(memory_queue,
+                      policy,
+                      batch_size,
+                      epsilon,
+                      step,
+                      n_experiments=1000,
+                      estimate_bias=True,
                       n_samples_bias=1e6):
 
     print("Running quantile variance/bias experiments...")
@@ -29,7 +34,7 @@ def quantile_variance(memory_queue, policy, batch_size, epsilon, step,
         combined_r = np.concatenate([memory_r, sample_r])
         if N == 0:
             print("WARNING: Found no unique samples in batch!")
-            combined_w = memory_w / memory_w.sum() # Renormalize
+            combined_w = memory_w / memory_w.sum()  # Renormalize
         else:
             sample_w = np.repeat((1 - memory_w.sum()) / N, N)
             combined_w = np.concatenate([memory_w, sample_w])

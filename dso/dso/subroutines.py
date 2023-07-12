@@ -46,12 +46,12 @@ def parents_siblings(tokens, arities, parent_adjust, empty_parent, empty_sibling
     """
     N, L = tokens.shape
 
-    adj_parents = np.full(shape=(N,), fill_value=empty_parent, dtype=np.int32)
-    siblings = np.full(shape=(N,), fill_value=empty_sibling, dtype=np.int32)
+    adj_parents = np.full(shape=(N, ), fill_value=empty_parent, dtype=np.int32)
+    siblings = np.full(shape=(N, ), fill_value=empty_sibling, dtype=np.int32)
     # Parallelized loop over action sequences
     for r in prange(N):
         arity = arities[tokens[r, -1]]
-        if arity > 0: # Parent is the previous element; no sibling
+        if arity > 0:  # Parent is the previous element; no sibling
             adj_parents[r] = parent_adjust[tokens[r, -1]]
             continue
         dangling = 0
@@ -59,7 +59,7 @@ def parents_siblings(tokens, arities, parent_adjust, empty_parent, empty_sibling
         for c in range(L):
             arity = arities[tokens[r, L - c - 1]]
             dangling += arity - 1
-            if dangling == 0: # Parent is L-c-1, sibling is the next
+            if dangling == 0:  # Parent is L-c-1, sibling is the next
                 adj_parents[r] = parent_adjust[tokens[r, L - c - 1]]
                 siblings[r] = tokens[r, L - c]
                 break
@@ -112,36 +112,36 @@ def jit_parents_siblings_at_once(tokens, arities, parent_adjust):
     """
     N, L = tokens.shape
 
-    empty_parent    = np.max(parent_adjust) + 1 # Empty token is after all non-empty tokens
-    empty_sibling   = len(arities) # Empty token is after all non-empty tokens
-    adj_parents     = np.full(shape=(N,L), fill_value=empty_parent, dtype=np.int32)
-    siblings        = np.full(shape=(N,L), fill_value=empty_sibling, dtype=np.int32)
-    
+    empty_parent = np.max(parent_adjust) + 1  # Empty token is after all non-empty tokens
+    empty_sibling = len(arities)  # Empty token is after all non-empty tokens
+    adj_parents = np.full(shape=(N, L), fill_value=empty_parent, dtype=np.int32)
+    siblings = np.full(shape=(N, L), fill_value=empty_sibling, dtype=np.int32)
+
     # Parallelization is slower here ...
-        
-    # We loop over actions since frequently, N is 1 when used with Deap. 
+
+    # We loop over actions since frequently, N is 1 when used with Deap.
     for b in range(1, L):
         for r in range(N):
             # This part is optimal
-            arity = arities[tokens[r, b - 1]]            
-            if arity > 0: # Parent is the previous element; no sibling
-                adj_parents[r, b]   = parent_adjust[tokens[r, b - 1]]
+            arity = arities[tokens[r, b - 1]]
+            if arity > 0:  # Parent is the previous element; no sibling
+                adj_parents[r, b] = parent_adjust[tokens[r, b - 1]]
                 continue
-            
+
             # This part may not be optimal here, but is fast enough for now
             dangling = 0
             # Loop over elements in an action sequence GOING BACKWARDS
             for c in range(b):
                 arity = arities[tokens[r, b - c - 1]]
                 dangling += arity - 1
-                
+
                 # Most recent non-dangling action
-                if dangling == 0: 
+                if dangling == 0:
                     # Parent is b-c-1, sibling is the next
-                    adj_parents[r, b]   = parent_adjust[tokens[r, b - c - 1]]
-                    siblings[r, b]      = tokens[r, b - c]
+                    adj_parents[r, b] = parent_adjust[tokens[r, b - c - 1]]
+                    siblings[r, b] = tokens[r, b - c]
                     break
-               
+
     return adj_parents, siblings
 
 
@@ -182,11 +182,11 @@ def ancestors(actions, arities, ancestor_tokens):
             "properly for non-unary ancestor_tokens"
 
     N, L = actions.shape
-    mask = np.zeros(shape=(N,), dtype=np.bool_)
+    mask = np.zeros(shape=(N, ), dtype=np.bool_)
     # Parallelized loop over action sequences
     for r in prange(N):
         dangling = 0
-        threshold = None # If None, current branch does not have trig ancestor
+        threshold = None  # If None, current branch does not have trig ancestor
         for c in range(L):
             arity = arities[actions[r, c]]
             dangling += arity - 1
@@ -245,30 +245,30 @@ def jit_check_constraint_violation(actions, actions_tokens, other, other_tokens)
     bool : Was the constraint violated. 
     
     """
+
     # Is this token item A found in the list of tokens in B?
     def a_in_b(a, B_tokens, B):
         for b in range(B):
             if a == B_tokens[b]:
                 return True
         return False
-     
-    _,L     = actions.shape
-    A       = actions_tokens.shape[0]
-    O       = other_tokens.shape[0]
-    
+
+    _, L = actions.shape
+    A = actions_tokens.shape[0]
+    O = other_tokens.shape[0]
+
     # For each action:
     for l in range(L):
         # Check if this token matches a constraint token
         # And check if the other also matches one of its constraints
-        if a_in_b(actions[0,l], actions_tokens, A) and a_in_b(other[0,l], other_tokens, O):
+        if a_in_b(actions[0, l], actions_tokens, A) and a_in_b(other[0, l], other_tokens, O):
             return True
-                    
+
     return False
 
 
 @jit(nopython=True, parallel=False)
-def jit_check_constraint_violation_uchild(actions, parent, sibling, actions_tokens, 
-                                          adj_unary_effectors, adj_effectors):
+def jit_check_constraint_violation_uchild(actions, parent, sibling, actions_tokens, adj_unary_effectors, adj_effectors):
     r"""
     Given an action sequence, another type of sequences such as siblings 
     or children and constraint tokens, this will return a bool which tells if
@@ -313,38 +313,38 @@ def jit_check_constraint_violation_uchild(actions, parent, sibling, actions_toke
     bool : Was the constraint violated. 
     
     """
+
     # Is this token item A found in the list of tokens in B?
     def a_in_b(a, B_tokens, B):
         for b in range(B):
             if a == B_tokens[b]:
                 return True
         return False
-     
-    _,L     = actions.shape
-    A       = actions_tokens.shape[0]
-    U       = adj_unary_effectors.shape[0]
-    E       = adj_effectors.shape[0]
-    
+
+    _, L = actions.shape
+    A = actions_tokens.shape[0]
+    U = adj_unary_effectors.shape[0]
+    E = adj_effectors.shape[0]
+
     # For each action:
     for l in range(L):
-        
+
         # Is this the right action?
-        if a_in_b(actions[0,l], actions_tokens, A):
+        if a_in_b(actions[0, l], actions_tokens, A):
             # CASE 1: parent is a unary effector
-            if a_in_b(parent[0,l], adj_unary_effectors, U):
+            if a_in_b(parent[0, l], adj_unary_effectors, U):
                 return True
-            
+
             # CASE 2: sibling is a target and parent is an effector
-            if a_in_b(sibling[0,l], actions_tokens, A) and a_in_b(parent[0,l], adj_effectors, E):
+            if a_in_b(sibling[0, l], actions_tokens, A) and a_in_b(parent[0, l], adj_effectors, E):
                 return True
-            
+
     return False
 
 
 @jit(nopython=True, parallel=False)
 def jit_check_constraint_violation_descendant_no_target_tokens(\
         actions, effector_tokens, binary_tokens, unary_tokens):
-
     r"""
     Given an action sequence, another type of sequences such as siblings 
     or children and constraint tokens, this will return a bool which tells if
@@ -404,26 +404,26 @@ def jit_check_constraint_violation_descendant_no_target_tokens(\
             if a == B_tokens[b]:
                 return True
         return False
-    
-    # Is this token item A NOT found in the list of tokens in B?                        
+
+    # Is this token item A NOT found in the list of tokens in B?
     def a_not_in_b(a, B_tokens, B):
         for b in range(B):
             if a == B_tokens[b]:
                 return False
         return True
-            
-    _,L     = actions.shape
-    E       = effector_tokens.shape[0]
-    B       = binary_tokens.shape[0]
-    U       = unary_tokens.shape[0]
-    
-    descendant = False # True when current node is a descendant of operator
+
+    _, L = actions.shape
+    E = effector_tokens.shape[0]
+    B = binary_tokens.shape[0]
+    U = unary_tokens.shape[0]
+
+    descendant = False  # True when current node is a descendant of operator
 
     # For each action:
     for l in range(L):
-        
-        action = actions[0,l]
-        
+
+        action = actions[0, l]
+
         if a_in_b(action, effector_tokens, E):
             # Does action match a target token?
             if descendant:
@@ -432,10 +432,10 @@ def jit_check_constraint_violation_descendant_no_target_tokens(\
                 # we have a token inside a token expression
                 # that we are not allowed to have e.g.
                 # sin(sin(x)) .
-                
+
                 return True
-            descendant  = True
-            dangling    = 1
+            descendant = True
+            dangling = 1
         elif descendant:
             if a_in_b(action, binary_tokens, B):
                 # Does action match a binary token?
@@ -444,23 +444,23 @@ def jit_check_constraint_violation_descendant_no_target_tokens(\
             elif a_not_in_b(action, unary_tokens, U):
                 # Does action match a terminal token?
                 # Then subtract one from dangling.
-                # We skip the instance of unary since 
-                # this leaves dangling to be += 0 
-                # and assume that any token not binary 
-                # and unary is a terminal. 
+                # We skip the instance of unary since
+                # this leaves dangling to be += 0
+                # and assume that any token not binary
+                # and unary is a terminal.
                 dangling -= 1
-            
-            # If we no longer have any dangling nodes, 
-            # Then we cannot be a descendant.     
+
+            # If we no longer have any dangling nodes,
+            # Then we cannot be a descendant.
             if dangling == 0:
                 descendant = False
-                
-    return False  
+
+    return False
+
 
 @jit(nopython=True, parallel=False)
 def jit_check_constraint_violation_descendant_with_target_tokens(\
         actions, target_tokens, effector_tokens, binary_tokens, unary_tokens):
-
     r"""
     
     Parameters
@@ -491,32 +491,32 @@ def jit_check_constraint_violation_descendant_with_target_tokens(\
             if a == B_tokens[b]:
                 return True
         return False
-    
-    # Is this token item A NOT found in the list of tokens in B?                        
+
+    # Is this token item A NOT found in the list of tokens in B?
     def a_not_in_b(a, B_tokens, B):
         for b in range(B):
             if a == B_tokens[b]:
                 return False
         return True
-            
-    _,L     = actions.shape
-    T       = target_tokens.shape[0]
-    B       = binary_tokens.shape[0]
-    U       = unary_tokens.shape[0]
-    
-    descendant = False # True when current node is a descendant of operator
+
+    _, L = actions.shape
+    T = target_tokens.shape[0]
+    B = binary_tokens.shape[0]
+    U = unary_tokens.shape[0]
+
+    descendant = False  # True when current node is a descendant of operator
 
     # For each action:
     for l in range(L):
-        
-        action = actions[0,l]
-        
+
+        action = actions[0, l]
+
         if a_in_b(action, effector_tokens, T):
             # Does action match a target token?
-            descendant  = True
-            dangling    = 1
+            descendant = True
+            dangling = 1
         elif a_in_b(action, target_tokens, T):
-            if descendant:                
+            if descendant:
                 return True
         elif descendant:
             if a_in_b(action, binary_tokens, B):
@@ -526,18 +526,15 @@ def jit_check_constraint_violation_descendant_with_target_tokens(\
             elif a_not_in_b(action, unary_tokens, U):
                 # Does action match a terminal token?
                 # Then subtract one from dangling.
-                # We skip the instance of unary since 
-                # this leaves dangling to be += 0 
-                # and assume that any token not binary 
-                # and unary is a terminal. 
+                # We skip the instance of unary since
+                # this leaves dangling to be += 0
+                # and assume that any token not binary
+                # and unary is a terminal.
                 dangling -= 1
-            
-            # If we no longer have any dangling nodes, 
-            # Then we cannot be a descendant.     
+
+            # If we no longer have any dangling nodes,
+            # Then we cannot be a descendant.
             if dangling == 0:
                 descendant = False
-                
-    return False  
 
-    
-
+    return False

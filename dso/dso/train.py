@@ -27,14 +27,33 @@ def work(p):
     r = p.r
     return p
 
-class Trainer():
-    def __init__(self, sess, policy, policy_optimizer, gp_controller, logger,
-                 pool, n_samples=2000000, batch_size=1000, alpha=0.5,
-                 epsilon=0.05, verbose=True, baseline="R_e",
-                 b_jumpstart=False, early_stopping=True, debug=0,
-                 use_memory=False, memory_capacity=1e3,  warm_start=None, memory_threshold=None,
-                 complexity="token", const_optimizer="scipy", const_params=None,  n_cores_batch=1):
 
+class Trainer():
+
+    def __init__(self,
+                 sess,
+                 policy,
+                 policy_optimizer,
+                 gp_controller,
+                 logger,
+                 pool,
+                 n_samples=2000000,
+                 batch_size=1000,
+                 alpha=0.5,
+                 epsilon=0.05,
+                 verbose=True,
+                 baseline="R_e",
+                 b_jumpstart=False,
+                 early_stopping=True,
+                 debug=0,
+                 use_memory=False,
+                 memory_capacity=1e3,
+                 warm_start=None,
+                 memory_threshold=None,
+                 complexity="token",
+                 const_optimizer="scipy",
+                 const_params=None,
+                 n_cores_batch=1):
         """
         Initializes the main training loop.
 
@@ -150,10 +169,12 @@ class Trainer():
 
         if self.debug:
             tvars = tf.trainable_variables()
+
             def print_var_means():
                 tvars_vals = self.sess.run(tvars)
                 for var, val in zip(tvars, tvars_vals):
                     print(var.name, "mean:", val.mean(), "var:", val.var())
+
             self.print_var_means = print_var_means
 
         # Create the priority_queue if needed
@@ -171,8 +192,7 @@ class Trainer():
         if self.use_memory:
             assert self.epsilon is not None and self.epsilon < 1.0, \
                 "Memory queue is only used with risk-seeking."
-            self.memory_queue = make_queue(policy=self.policy, priority=False,
-                                           capacity=int(memory_capacity))
+            self.memory_queue = make_queue(policy=self.policy, priority=False, capacity=int(memory_capacity))
 
             # Warm start the queue
             # TBD: Parallelize. Abstract sampling a Batch
@@ -182,14 +202,13 @@ class Trainer():
             r = np.array([p.r for p in programs])
             l = np.array([len(p.traversal) for p in programs])
             on_policy = np.array([p.originally_on_policy for p in programs])
-            sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                                  lengths=l, rewards=r, on_policy=on_policy)
+            sampled_batch = Batch(actions=actions, obs=obs, priors=priors, lengths=l, rewards=r, on_policy=on_policy)
             self.memory_queue.push_batch(sampled_batch, programs)
         else:
             self.memory_queue = None
 
-        self.nevals = 0 # Total number of sampled expressions (from RL or GP)
-        self.iteration = 0 # Iteration counter
+        self.nevals = 0  # Total number of sampled expressions (from RL or GP)
+        self.iteration = 0  # Iteration counter
         self.r_best = -np.inf
         self.p_r_best = None
         self.done = False
@@ -211,12 +230,11 @@ class Trainer():
             print("\nDEBUG: Policy parameter means:")
             self.print_var_means()
 
-        ewma = None if self.b_jumpstart else 0.0 # EWMA portion of baseline
+        ewma = None if self.b_jumpstart else 0.0  # EWMA portion of baseline
 
         start_time = time.time()
         if self.verbose:
             print("-- RUNNING ITERATIONS START -------------")
-
 
         # Number of extra samples generated during attempt to get
         # batch_size new samples
@@ -231,7 +249,7 @@ class Trainer():
         if override is None:
             # Sample batch of Programs from the Controller
             actions, obs, priors = self.policy.sample(self.batch_size)
-            programs = [from_tokens(a) for a in actions]            
+            programs = [from_tokens(a) for a in actions]
         else:
             # Train on the given batch of Programs
             actions, obs, priors, programs = override
@@ -245,8 +263,7 @@ class Trainer():
             self.policy.valid_extended_batch = False
             n_extra = self.policy.extended_batch[0]
             if n_extra > 0:
-                extra_programs = [from_tokens(a) for a in
-                                  self.policy.extended_batch[1]]
+                extra_programs = [from_tokens(a) for a in self.policy.extended_batch[1]]
                 # Concatenation is fine because rnn_policy.sample_novel()
                 # already made sure that offline batch and extended batch
                 # are padded to the same trajectory length
@@ -270,7 +287,8 @@ class Trainer():
             elif actions.shape[1] > deap_actions.shape[1]:
                 # If GP shape is smaller than RL then pad
                 pad_length = actions.shape[1] - deap_actions.shape[1]
-                deap_actions, deap_obs, deap_priors = pad_action_obs_priors(deap_actions, deap_obs, deap_priors, pad_length)
+                deap_actions, deap_obs, deap_priors = pad_action_obs_priors(deap_actions, deap_obs, deap_priors,
+                                                                            pad_length)
 
             # Combine RNN and deap programs, actions, obs, and priors
             programs = programs + deap_programs
@@ -282,8 +300,8 @@ class Trainer():
         if self.pool is not None:
             # Filter programs that need reward computing
             programs_to_optimize = list(set([p for p in programs if "r" not in p.__dict__]))
-            pool_p_dict = { p.str : p for p in self.pool.map(work, programs_to_optimize) }
-            programs = [pool_p_dict[p.str] if "r" not in p.__dict__  else p for p in programs]
+            pool_p_dict = {p.str: p for p in self.pool.map(work, programs_to_optimize)}
+            programs = [pool_p_dict[p.str] if "r" not in p.__dict__ else p for p in programs]
             # Make sure to update cache with new programs
             Program.cache.update(pool_p_dict)
 
@@ -294,10 +312,10 @@ class Trainer():
         controller_programs = programs.copy() if self.logger.save_token_count else None
 
         # Need for Vanilla Policy Gradient (epsilon = null)
-        l           = np.array([len(p.traversal) for p in programs])
-        s           = [p.str for p in programs] # Str representations of Programs
-        on_policy   = np.array([p.originally_on_policy for p in programs])
-        invalid     = np.array([p.invalid for p in programs], dtype=bool)
+        l = np.array([len(p.traversal) for p in programs])
+        s = [p.str for p in programs]  # Str representations of Programs
+        on_policy = np.array([p.originally_on_policy for p in programs])
+        invalid = np.array([p.invalid for p in programs], dtype=bool)
 
         if self.logger.save_positional_entropy:
             positional_entropy = np.apply_along_axis(empirical_entropy, 0, actions)
@@ -316,14 +334,13 @@ class Trainer():
         actions_full = actions
         invalid_full = invalid
         r_max = np.max(r)
-
         """
         Apply risk-seeking policy gradient: compute the empirical quantile of
         rewards and filter out programs with lesser reward.
         """
         if self.epsilon is not None and self.epsilon < 1.0:
             # Compute reward quantile estimate
-            if self.use_memory: # Memory-augmented quantile
+            if self.use_memory:  # Memory-augmented quantile
                 # Get subset of Programs not in buffer
                 unique_programs = [p for p in programs \
                                    if p.str not in self.memory_queue.unique_items]
@@ -338,7 +355,7 @@ class Trainer():
                 memory_w = self.memory_queue.compute_probs()
                 if N == 0:
                     print("WARNING: Found no unique samples in batch!")
-                    combined_w = memory_w / memory_w.sum() # Renormalize
+                    combined_w = memory_w / memory_w.sum()  # Renormalize
                 else:
                     sample_w = np.repeat((1 - memory_w.sum()) / N, N)
                     combined_w = np.concatenate([memory_w, sample_w])
@@ -352,7 +369,7 @@ class Trainer():
                 # Compute the weighted quantile
                 quantile = weighted_quantile(values=combined_r, weights=combined_w, q=1 - self.epsilon)
 
-            else: # Empirical quantile
+            else:  # Empirical quantile
                 quantile = np.quantile(r, 1 - self.epsilon, interpolation="higher")
 
             # Filter quantities whose reward >= quantile
@@ -361,7 +378,7 @@ class Trainer():
             s = list(compress(s, keep))
             invalid = invalid[keep]
             r = r[keep]
-            programs  = list(compress(programs, keep))
+            programs = list(compress(programs, keep))
             actions = actions[keep, :]
             obs = obs[keep, :, :]
             priors = priors[keep, :, :]
@@ -373,25 +390,24 @@ class Trainer():
         # Compute baseline
         # NOTE: pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
         if self.baseline == "ewma_R":
-            ewma = np.mean(r) if ewma is None else self.alpha*np.mean(r) + (1 - self.alpha)*ewma
+            ewma = np.mean(r) if ewma is None else self.alpha * np.mean(r) + (1 - self.alpha) * ewma
             b = ewma
-        elif self.baseline == "R_e": # Default
+        elif self.baseline == "R_e":  # Default
             ewma = -1
             b = quantile
         elif self.baseline == "ewma_R_e":
-            ewma = np.min(r) if ewma is None else self.alpha*quantile + (1 - self.alpha)*ewma
+            ewma = np.min(r) if ewma is None else self.alpha * quantile + (1 - self.alpha) * ewma
             b = ewma
         elif self.baseline == "combined":
-            ewma = np.mean(r) - quantile if ewma is None else self.alpha*(np.mean(r) - quantile) + (1 - self.alpha)*ewma
+            ewma = np.mean(r) - quantile if ewma is None else self.alpha * (np.mean(r) - quantile) + (1 -
+                                                                                                      self.alpha) * ewma
             b = quantile + ewma
 
         # Compute sequence lengths
-        lengths = np.array([min(len(p.traversal), self.policy.max_length)
-                            for p in programs], dtype=np.int32)
+        lengths = np.array([min(len(p.traversal), self.policy.max_length) for p in programs], dtype=np.int32)
 
         # Create the Batch
-        sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
-                              lengths=lengths, rewards=r, on_policy=on_policy)
+        sampled_batch = Batch(actions=actions, obs=obs, priors=priors, lengths=lengths, rewards=r, on_policy=on_policy)
 
         # Update and sample from the priority queue
         if self.priority_queue is not None:
@@ -418,18 +434,15 @@ class Trainer():
 
             # Print new best expression
             if self.verbose or self.debug:
-                print("[{}] Training iteration {}, current best R: {:.4f}".format(get_duration(start_time), self.iteration + 1, self.r_best))
+                print("[{}] Training iteration {}, current best R: {:.4f}".format(get_duration(start_time),
+                                                                                  self.iteration + 1, self.r_best))
                 print("\n\t** New best")
                 self.p_r_best.print_stats()
 
         # Collect sub-batch statistics and write output
-        self.logger.save_stats(r_full, l_full, actions_full, s_full,
-                               invalid_full, r, l, actions, s, s_history,
-                               invalid, self.r_best, r_max, ewma, summaries,
-                               self.iteration, b, iteration_walltime,
-                               self.nevals, controller_programs,
-                               positional_entropy, top_samples_per_batch)
-
+        self.logger.save_stats(r_full, l_full, actions_full, s_full, invalid_full, r, l, actions, s, s_history, invalid,
+                               self.r_best, r_max, ewma, summaries, self.iteration, b, iteration_walltime, self.nevals,
+                               controller_programs, positional_entropy, top_samples_per_batch)
 
         # Stop if early stopping criteria is met
         if self.early_stopping and self.p_r_best.evaluate.get("success"):
@@ -437,7 +450,8 @@ class Trainer():
             self.done = True
 
         if self.verbose and (self.iteration + 1) % 10 == 0:
-            print("[{}] Training iteration {}, current best R: {:.4f}".format(get_duration(start_time), self.iteration + 1, self.r_best))
+            print("[{}] Training iteration {}, current best R: {:.4f}".format(get_duration(start_time),
+                                                                              self.iteration + 1, self.r_best))
 
         if self.debug >= 2:
             print("\nParameter means after iteration {}:".format(self.iteration + 1))
@@ -455,10 +469,10 @@ class Trainer():
         """
 
         state_dict = {
-            "nevals" : self.nevals,
-            "iteration" : self.iteration,
-            "r_best" : self.r_best,
-            "p_r_best_tokens" : self.p_r_best.tokens.tolist() if self.p_r_best is not None else None
+            "nevals": self.nevals,
+            "iteration": self.iteration,
+            "r_best": self.r_best,
+            "p_r_best_tokens": self.p_r_best.tokens.tolist() if self.p_r_best is not None else None
         }
         with open(save_path, 'w') as f:
             json.dump(state_dict, f)

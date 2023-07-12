@@ -1,7 +1,7 @@
 """Test that given the same seed, changing dt does not alter the starting state and does alter the next state"""
 
 import gym
-import dso.task.control.envs # Needed to register the environments so they're seen by gym.make()
+import dso.task.control.envs  # Needed to register the environments so they're seen by gym.make()
 import numpy as np
 
 env_ids = ["CustomPendulum-v0", "CustomCartPoleContinuous-v0", "CustomCartPoleContinuousBulletEnv-v0"]

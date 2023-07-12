@@ -2,27 +2,26 @@ from dso.utils import cached_property
 import gym
 import numpy as np
 
-import dso.task.control # Registers custom and third-party environments
+import dso.task.control  # Registers custom and third-party environments
 from dso.program import Program, from_str_tokens
 from dso.library import Library, DiscreteAction, MultiDiscreteAction
 from dso.functions import create_tokens, create_state_checkers
 import dso.task.control.utils as U
 from dso.task import HierarchicalTask
 
-
-REWARD_SEED_SHIFT = int(1e6) # Reserve the first million seeds for evaluation
+REWARD_SEED_SHIFT = int(1e6)  # Reserve the first million seeds for evaluation
 
 # Pre-computed values for reward scale
 REWARD_SCALE = {
-    "CustomCartPoleContinuous-v0" : [0.0, 1000.0],
-    "MountainCarContinuous-v0" : [0.0, 93.95],
-    "Pendulum-v0" : [-1300.0, -147.56],
-    "InvertedDoublePendulumBulletEnv-v0" : [0.0, 9357.77],
-    "InvertedPendulumSwingupBulletEnv-v0" : [0.0, 891.34],
-    "LunarLanderContinuous-v2" : [0.0, 272.65],
-    "HopperBulletEnv-v0" : [0.0, 2741.86],
-    "ReacherBulletEnv-v0" : [-5.0, 19.05],
-    "BipedalWalker-v2" : [-60.0, 312.0]
+    "CustomCartPoleContinuous-v0": [0.0, 1000.0],
+    "MountainCarContinuous-v0": [0.0, 93.95],
+    "Pendulum-v0": [-1300.0, -147.56],
+    "InvertedDoublePendulumBulletEnv-v0": [0.0, 9357.77],
+    "InvertedPendulumSwingupBulletEnv-v0": [0.0, 891.34],
+    "LunarLanderContinuous-v2": [0.0, 272.65],
+    "HopperBulletEnv-v0": [0.0, 2741.86],
+    "ReacherBulletEnv-v0": [-5.0, 19.05],
+    "BipedalWalker-v2": [-60.0, 312.0]
 }
 
 
@@ -37,13 +36,14 @@ class Action:
         Action space for the control problem.
         Supported option: Box, Discrete, MultiDiscrete.
     """
+
     def __init__(self, space):
         self.is_discrete = isinstance(space, gym.spaces.Discrete)
         self.is_multi_discrete = isinstance(space, gym.spaces.MultiDiscrete)
-        self.shape = (1,) if self.is_discrete else space.shape
+        self.shape = (1, ) if self.is_discrete else space.shape
         self.symbolic_actions = {}
         self.model = None
-        
+
         self.n_actions = self.shape[0]
         self.action_dim = None
 
@@ -123,8 +123,7 @@ class Action:
         return np.clip(action, self.low, self.high)
 
 
-def create_decision_tree_tokens(n_obs, obs_threshold_sets, action_space,
-                                ref_action=None):
+def create_decision_tree_tokens(n_obs, obs_threshold_sets, action_space, ref_action=None):
     """
     Create a list of tokens for learning decision trees. The action space
     must be either Discrete or MultiDiscrete. The returning list contains
@@ -169,7 +168,7 @@ def create_decision_tree_tokens(n_obs, obs_threshold_sets, action_space,
 
     return tokens
 
-   
+
 class ControlTask(HierarchicalTask):
     """
     Class for the control task. Discrete objects are expressions, which are
@@ -177,11 +176,22 @@ class ControlTask(HierarchicalTask):
     learning environment.
     """
 
-    def __init__(self, function_set, env, action_spec, algorithm=None,
-                 anchor=None, n_episodes_train=5, n_episodes_test=1000,
-                 success_score=None, protected=False, env_kwargs=None,
-                 fix_seeds=False, episode_seed_shift=0, reward_scale=True,
-                 decision_tree_threshold_set=None, ref_action=None):
+    def __init__(self,
+                 function_set,
+                 env,
+                 action_spec,
+                 algorithm=None,
+                 anchor=None,
+                 n_episodes_train=5,
+                 n_episodes_test=1000,
+                 success_score=None,
+                 protected=False,
+                 env_kwargs=None,
+                 fix_seeds=False,
+                 episode_seed_shift=0,
+                 reward_scale=True,
+                 decision_tree_threshold_set=None,
+                 ref_action=None):
         """
         Parameters
         ----------
@@ -246,7 +256,7 @@ class ControlTask(HierarchicalTask):
         self.fix_seeds = fix_seeds
         self.episode_seed_shift = episode_seed_shift
         self.stochastic = not fix_seeds
-        
+
         # Create the environment
         env_name = env
         if env_kwargs is None:
@@ -258,13 +268,14 @@ class ControlTask(HierarchicalTask):
         # Note Zoo is not implemented as a package, which might make this tedious
         if "Bullet" in env_name:
             self.env = U.TimeFeatureWrapper(self.env)
-        
+
         self.action = Action(self.env.action_space)
 
         # Determine reward scaling
         if isinstance(reward_scale, list):
             assert len(reward_scale) == 2, "Reward scale should be length 2: \
                                             min, max."
+
             self.r_min, self.r_max = reward_scale
         elif reward_scale:
             if env_name in REWARD_SCALE:
@@ -272,8 +283,7 @@ class ControlTask(HierarchicalTask):
             else:
                 raise RuntimeError("{} has no default values for reward_scale. \
                                    Use reward_scale=False or specify \
-                                   reward_scale=[r_min, r_max]."
-                                   .format(env_name))
+                                   reward_scale=[r_min, r_max].".format(env_name))
         else:
             self.r_min = self.r_max = None
 
@@ -282,11 +292,10 @@ class ControlTask(HierarchicalTask):
         if self.action.is_discrete or self.action.is_multi_discrete:
             print("WARNING: The provided function_set will be ignored because "\
                   "action space of {} is {}.".format(env_name, self.env.action_space))
-            tokens = create_decision_tree_tokens(n_input_var, decision_tree_threshold_set, 
-                                                 self.env.action_space, ref_action)
+            tokens = create_decision_tree_tokens(n_input_var, decision_tree_threshold_set, self.env.action_space,
+                                                 ref_action)
         else:
-            tokens = create_tokens(n_input_var, function_set, protected,
-                                   decision_tree_threshold_set)
+            tokens = create_tokens(n_input_var, function_set, protected, decision_tree_threshold_set)
         self.library = Library(tokens)
         Program.library = self.library
 
@@ -304,7 +313,7 @@ class ControlTask(HierarchicalTask):
 
         # Generate symbolic policies and determine action dimension
         self.action.set_action_spec(action_spec, algorithm, anchor, env_name)
-        
+
         # Define name based on environment and learned action dimension
         self.name = env_name
         if self.action.action_dim is not None:
@@ -314,7 +323,7 @@ class ControlTask(HierarchicalTask):
         """Runs n_episodes episodes and returns each episodic reward."""
 
         # Run the episodes and return the average episodic reward
-        r_episodes = np.zeros(n_episodes, dtype=np.float64) # Episodic rewards for each episode
+        r_episodes = np.zeros(n_episodes, dtype=np.float64)  # Episodic rewards for each episode
         for i in range(n_episodes):
 
             # During evaluation, always use the same seeds
@@ -359,9 +368,5 @@ class ControlTask(HierarchicalTask):
         success_rate = np.mean(r_episodes >= self.success_score)
         success = success_rate == 1.0
 
-        info = {
-            "r_avg_test" : r_avg_test,
-            "success_rate" : success_rate,
-            "success" : success
-        }
+        info = {"r_avg_test": r_avg_test, "success_rate": success_rate, "success": success}
         return info
