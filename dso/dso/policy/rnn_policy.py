@@ -13,15 +13,15 @@ from dso.utils import make_batch_ph
 
 
 
-def safe_cross_entropy(p, logq, axis=-1):
+def safe_cross_entropy(p, logq, dim=-1):
     """Compute p * logq safely, by susbstituting
     logq[index] = 1 for index such that p[index] == 0
     """
     # Put 1 where p == 0. In the case, q =p, logq = -inf and this
     # might procude numerical errors below
-    safe_logq = tf.where(tf.equal(p, 0.), tf.ones_like(logq), logq)
+    safe_logq = torch.where(p > 0.0, torch.ones_like(logq), logq)
     # Safely compute the product
-    return -tf.reduce_sum(p * safe_logq, axis)
+    return -torch.sum(p * safe_logq, dim=dim)
 
 
 class RNNPolicy(Policy):
@@ -80,15 +80,18 @@ class RNNPolicy(Policy):
 
         self.max_attempts_at_novel_batch = max_attempts_at_novel_batch
         self.sample_novel_batch = sample_novel_batch
+        self.batch_size = torch.empty()
 
-        if cell == "lstm":
+        # omitted zero initialization (no symmetry breaking)
+        self.cell = cell
+        if self.cell == "lstm":
             self.rnn = nn.LSTM(
                 input_size=self.state_manager.state_dim,
                 hidden_size=num_units,
                 num_layers=num_layers,
                 batch_first=True
             )
-        elif cell == "gru":
+        elif self.cell == "gru":
             self.rnn = nn.GRU(
                 input_size=self.state_manager.state_dim,
                 hidden_size=num_units,
@@ -99,12 +102,20 @@ class RNNPolicy(Policy):
             raise ValueError("cell needs to be lstm or gru")
         self.fc = nn.Linear(in_features=num_units, out_features=self.prior.n_choices)
 
+    def set_up_model(self):
+        return
+
     def forward(self, obs, lengths):
         packed_obs = nn.utils.rnn.pack_padded_sequence(obs, lengths, batch_first=True, enforce_sorted=False)
         packed_outputs, _ = self.rnn(packed_obs)
         outputs, _ = nn.utils.rnn.pack_padded_sequence(packed_outputs, batch_first=True)
         logits = self.fc(outputs)
         return logits
+    
+    def loop_fn(self, time, cell_output, cell_state, loop_state):
+        if cell_output is None:
+            finished = torch.zeros(size=[self.batch_size], )
+        return finished, next_input, next_cell_state, emit_output, next_loop_state
 
     def make_neglogp_and_entropy(self, actions, probs, lengths):
         """Computes the negative log-probabilities for a given
